@@ -71,7 +71,8 @@ export default function RewardCardFull({
         onSuccess();
       } else {
         const err = data.error as { message?: string; code?: string } | undefined;
-        const msg = err?.message ?? data.message ?? 'Talep işlenemedi';
+        const ex = data.exception as { message?: string } | undefined;
+        const msg = err?.message ?? ex?.message ?? data.message ?? 'Talep işlenemedi';
         const code = err?.code;
         onError(code ? `${msg} (${code})` : msg);
       }

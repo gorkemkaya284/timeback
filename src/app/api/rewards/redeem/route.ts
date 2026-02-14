@@ -38,26 +38,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: 'idempotencyKey gerekli' }, { status: 400 });
     }
 
+    console.log('[redeem] req', { variantId, idempotencyKey, notePresent: !!note, userId: user.id });
+
     const supabase = await createClient();
 
-    // Named args – signature: redeem_reward(p_variant_id uuid, p_idempotency_key text, p_note text default null)
     const { data, error } = await supabase.rpc('redeem_reward', {
       p_variant_id: variantId,
       p_idempotency_key: idempotencyKey,
       p_note: note ?? null,
     });
 
+    console.error('[redeem] rpc result', { data, error });
+
     if (error) {
-      const err = error as { code?: string; message?: string; details?: string; hint?: string };
-      const errPayload = {
-        code: err.code ?? null,
-        message: err.message ?? 'Çekim işlenemedi',
-        details: err.details ?? null,
-        hint: err.hint ?? null,
-      };
-      console.error('[redeem] error', errPayload);
+      const err = error as unknown as Record<string, unknown>;
+      const code = err?.code != null ? String(err.code) : null;
+      const message =
+        err?.message != null ? String(err.message) : err?.msg != null ? String(err.msg) : (error && typeof (error as { toString?: () => string }).toString === 'function' ? (error as { toString: () => string }).toString() : JSON.stringify(error));
+      const details = err?.details != null ? String(err.details) : null;
+      const hint = err?.hint != null ? String(err.hint) : null;
+      const errorPayload = { code, message, details, hint };
       return NextResponse.json(
-        { ok: false, error: errPayload },
+        { ok: false, error: errorPayload },
         { status: 400 }
       );
     }
@@ -65,24 +67,25 @@ export async function POST(request: Request) {
     const raw = data as Record<string, unknown> | null;
     if (!raw) {
       return NextResponse.json(
-        { ok: false, error: { code: null, message: 'Beklenmeyen yanıt', details: null, hint: null } },
+        { ok: false, error: { code: null, message: 'RPC returned null/empty', details: null, hint: null } },
         { status: 400 }
       );
     }
 
     const success = raw.success === true;
     if (!success) {
-      const errCode = (raw.error as string) ?? null;
-      const errMsg = (raw.message as string) ?? (raw.error as string) ?? 'Çekim işlenemedi';
-      const errPayload = {
-        code: errCode,
-        message: errMsg,
-        details: (raw.details as string) ?? null,
-        hint: (raw.hint as string) ?? null,
-      };
-      console.error('[redeem] error', errPayload);
+      const errCode = raw.error != null ? String(raw.error) : null;
+      const errMsg = raw.message != null ? String(raw.message) : (raw.error != null ? String(raw.error) : JSON.stringify(raw));
       return NextResponse.json(
-        { ok: false, error: errPayload },
+        {
+          ok: false,
+          error: {
+            code: errCode,
+            message: errMsg,
+            details: (raw.details as string) ?? null,
+            hint: (raw.hint as string) ?? null,
+          },
+        },
         { status: 400 }
       );
     }
@@ -100,12 +103,14 @@ export async function POST(request: Request) {
       redemption,
       message: 'Talebin alındı (beklemede)',
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[redeem] error', err);
+  } catch (e) {
+    console.error('[redeem] exception', e);
+    const name = e instanceof Error ? e.name : undefined;
+    const message = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack : undefined;
     return NextResponse.json(
-      { ok: false, error: { code: null, message: msg, details: null, hint: null } },
-      { status: 400 }
+      { ok: false, exception: { name, message, stack } },
+      { status: 500 }
     );
   }
 }
