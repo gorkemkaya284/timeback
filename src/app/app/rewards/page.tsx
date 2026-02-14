@@ -3,9 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { getPointsSummary } from '@/lib/points-ledger';
 import { MIN_REDEMPTION_POINTS, REDEEM_ENABLED } from '@/config/rewards';
-import { FALLBACK_REWARDS, FALLBACK_VARIANTS } from '@/config/rewards-fallback';
 import RewardsFeedbackBanner from '@/components/rewards/RewardsFeedbackBanner';
-import RewardsListV2 from '@/components/rewards/RewardsListV2';
+import RewardsPageClient from '@/components/rewards/RewardsPageClient';
 import WithdrawBalanceBar from '@/components/rewards/WithdrawBalanceBar';
 import SonCekimler from '@/components/rewards/SonCekimler';
 
@@ -16,26 +15,6 @@ export default async function RewardsPage() {
   const supabase = await createClient();
   const { ensureProfile } = await import('@/lib/supabase/profile');
   await ensureProfile(user.id);
-
-  let rewardsList = FALLBACK_REWARDS;
-  let variantsList = FALLBACK_VARIANTS;
-
-  const { data: rewards, error: rewardsError } = await supabase
-    .from('rewards')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true });
-
-  const { data: variants, error: variantsError } = await supabase
-    .from('reward_variants')
-    .select('id, reward_id, denomination_tl, cost_points, stock, daily_limit_per_user, min_account_age_days, is_active, created_at')
-    .eq('is_active', true)
-    .order('denomination_tl', { ascending: true });
-
-  if (!rewardsError && !variantsError && rewards?.length) {
-    rewardsList = rewards as typeof FALLBACK_REWARDS;
-    variantsList = (variants ?? []) as typeof FALLBACK_VARIANTS;
-  }
 
   const { totalPoints: userPoints } = await getPointsSummary(user.id);
 
@@ -76,9 +55,7 @@ export default async function RewardsPage() {
           pending={pendingPoints}
         />
 
-        <RewardsListV2
-          rewards={rewardsList}
-          variants={variantsList}
+        <RewardsPageClient
           userPoints={userPoints}
           withdrawable={withdrawable}
           minPoints={MIN_REDEMPTION_POINTS}

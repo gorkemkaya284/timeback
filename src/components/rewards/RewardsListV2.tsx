@@ -36,6 +36,7 @@ export default function RewardsListV2({
   withdrawable,
   minPoints,
   redeemEnabled = true,
+  useFallback = false,
 }: {
   rewards: RewardV2[];
   variants: RewardVariantV2[];
@@ -43,6 +44,8 @@ export default function RewardsListV2({
   withdrawable: number;
   minPoints: number;
   redeemEnabled?: boolean;
+  /** True when data came from fallback (DB fetch failed). Show "veritabanı bağlantısı gerekli" and disable redeem. */
+  useFallback?: boolean;
 }) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -91,7 +94,15 @@ export default function RewardsListV2({
         </span>
       </div>
 
-      {!redeemEnabled && (
+      {useFallback && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+        >
+          Bu ödüller şu an talep edilemez. Veritabanı bağlantısı gerekli.
+        </div>
+      )}
+      {!redeemEnabled && !useFallback && (
         <div
           role="status"
           className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
