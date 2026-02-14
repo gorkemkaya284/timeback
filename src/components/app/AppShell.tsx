@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import MobileDrawer from './MobileDrawer';
 import AppFooter from './AppFooter';
+import PresenceHeartbeat from '@/components/presence/PresenceHeartbeat';
 
 type Props = {
   email: string;
@@ -18,6 +19,7 @@ export default function AppShell({ email, isAdmin, balance, children }: Props) {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <PresenceHeartbeat />
       <aside className="flex flex-shrink-0">
         <Sidebar isAdmin={isAdmin} balance={balance} />
       </aside>

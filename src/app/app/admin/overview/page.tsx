@@ -1,5 +1,6 @@
 import { getAdminOverview } from '@/lib/admin-data';
 import { formatPoints } from '@/lib/utils';
+import AdminOnlineUsersCard from '@/components/admin/AdminOnlineUsersCard';
 
 export default async function AdminOverviewPage() {
   const data = await getAdminOverview();
@@ -8,7 +9,8 @@ export default async function AdminOverviewPage() {
     <div className="space-y-8">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Özet</h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <AdminOnlineUsersCard />
         <div className="card p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Toplam kullanıcı</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{data.totalUsers}</p>

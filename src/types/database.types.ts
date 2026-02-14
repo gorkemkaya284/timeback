@@ -81,6 +81,24 @@ export interface Database {
         };
         Relationships: [];
       };
+      presence_heartbeats: {
+        Row: {
+          user_id: string;
+          last_seen: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          last_seen?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          last_seen?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       points_ledger: {
         Row: {
           id: string;
