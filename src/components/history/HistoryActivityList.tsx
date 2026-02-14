@@ -1,26 +1,30 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
-import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
+import {
+  normalizeWithdrawalStatus,
+  getWithdrawalStatusUI,
+  getWithdrawalBadgeClass,
+  type WithdrawalStatus,
+} from '@/lib/withdrawalStatus';
+import type { WithdrawalRow } from '@/server/queries/withdrawals';
 
 type Filter = 'all' | 'earnings' | 'withdrawals' | 'pending';
-
-type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi' | 'İptal';
 
 type ActivityItem = {
   id: string;
   date: string;
+  created_at: string;
   type: 'Kazanç' | 'Çekim';
   description: string;
   points: number;
-  status: RedemptionStatusLabel;
+  status: WithdrawalStatus;
   isPending: boolean;
 };
 
 function mapReasonToDescription(reason: string): string {
-  if (reason.startsWith('Redeemed:')) return reason.replace('Redeemed: ', '');
   if (reason.startsWith('Offerwall:')) return reason.replace('Offerwall: ', 'Görev tamamlandı');
   if (reason.includes('admin_credit')) return 'Admin kredisi';
   if (reason.includes('admin_debit')) return 'Admin düzeltmesi';
@@ -29,68 +33,52 @@ function mapReasonToDescription(reason: string): string {
   return reason;
 }
 
-
-type LedgerEntry = {
+type EarningsEntry = {
   id: string;
   delta: number;
   reason: string;
-  ref_type: string | null;
-  ref_id: string | null;
   created_at: string;
-};
-
-type RedemptionWithReward = {
-  id: string;
-  status: string;
-  points_spent: number;
-  created_at: string;
-  reward_title?: string;
 };
 
 export default function HistoryActivityList({
-  ledgerEntries,
-  redemptions,
+  earnings,
+  withdrawals,
 }: {
-  ledgerEntries: LedgerEntry[];
-  redemptions: RedemptionWithReward[];
+  earnings: EarningsEntry[];
+  withdrawals: WithdrawalRow[];
 }) {
   const [filter, setFilter] = useState<Filter>('all');
 
-  const redemptionsById = useMemo(() => {
-    const map = new Map<string, RedemptionWithReward>();
-    redemptions.forEach((r) => {
-      const key = String(r.id);
-      map.set(key, r);
-    });
-    return map;
-  }, [redemptions]);
-
   const items: ActivityItem[] = useMemo(() => {
-    return ledgerEntries.map((e) => {
-      const isCredit = e.delta > 0;
-      const isRedemptionRef = (e.ref_type === 'redemption' || e.ref_type === 'redeem') && e.ref_id;
-      const redemptionFull = isRedemptionRef
-        ? redemptionsById.get(String(e.ref_id)) ?? null
-        : null;
-      const status: RedemptionStatusLabel = redemptionFull
-        ? getRedemptionStatusLabel(redemptionFull.status)
-        : isCredit
-          ? 'Tamamlandı'
-          : 'Beklemede';
-      const description = isCredit
-        ? mapReasonToDescription(e.reason)
-        : (redemptionFull?.reward_title ?? mapReasonToDescription(e.reason));
+    const earningsItems: ActivityItem[] = earnings.map((e) => ({
+      id: `earn-${e.id}`,
+      date: new Date(e.created_at).toLocaleString('tr-TR'),
+      created_at: e.created_at,
+      type: 'Kazanç' as const,
+      description: mapReasonToDescription(e.reason),
+      points: e.delta,
+      status: 'paid' as WithdrawalStatus,
+      isPending: false,
+    }));
+
+    const withdrawalItems: ActivityItem[] = withdrawals.map((w) => {
+      const status = normalizeWithdrawalStatus(w.status);
       return {
-        id: e.id,
-        date: new Date(e.created_at).toLocaleString('tr-TR'),
-        type: isCredit ? 'Kazanç' : 'Çekim',
-        description,
-        points: Math.abs(e.delta),
+        id: `wd-${w.id}`,
+        date: new Date(w.created_at).toLocaleString('tr-TR'),
+        created_at: w.created_at,
+        type: 'Çekim' as const,
+        description: w.reward_title ?? 'Çekim',
+        points: w.points,
         status,
-        isPending: status === 'Beklemede',
+        isPending: status === 'pending',
       };
     });
-  }, [ledgerEntries, redemptionsById]);
+
+    return [...earningsItems, ...withdrawalItems].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [earnings, withdrawals]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return items;
@@ -190,9 +178,9 @@ export default function HistoryActivityList({
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
+                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getWithdrawalBadgeClass(getWithdrawalStatusUI(item.status).badgeVariant)}`}
                         >
-                          {item.status}
+                          {getWithdrawalStatusUI(item.status).label}
                         </span>
                       </td>
                     </tr>
@@ -227,9 +215,9 @@ export default function HistoryActivityList({
                         {formatPoints(item.points)}
                       </p>
                       <span
-                        className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
+                        className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded ${getWithdrawalBadgeClass(getWithdrawalStatusUI(item.status).badgeVariant)}`}
                       >
-                        {item.status}
+                        {getWithdrawalStatusUI(item.status).label}
                       </span>
                     </div>
                   </div>

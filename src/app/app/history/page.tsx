@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
+import { getUserWithdrawals } from '@/server/queries/withdrawals';
 import HistoryActivityList from '@/components/history/HistoryActivityList';
 
 export const dynamic = 'force-dynamic';
@@ -12,30 +13,23 @@ export default async function HistoryPage() {
   const { ensureProfile } = await import('@/lib/supabase/profile');
   await ensureProfile(user.id);
 
-  const { data: ledgerEntries } = await supabase
-    .from('points_ledger')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const [withdrawals, { data: ledgerCredits }] = await Promise.all([
+    getUserWithdrawals(user.id, { limit: 50 }),
+    supabase
+      .from('points_ledger')
+      .select('id, delta, reason, created_at')
+      .eq('user_id', user.id)
+      .gt('delta', 0)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ]);
 
-  const { data: redemptions, error: redemptionsError } = await supabase
-    .from('redemptions')
-    .select('id, status, points_spent, created_at, rewards(title)')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  const redemptionsList = redemptionsError ? [] : (redemptions ?? []);
-  const redemptionsWithTitle = redemptionsList.map((r) => {
-    const reward = (r as { rewards?: { title?: string } | null }).rewards;
-    return {
-      id: r.id,
-      status: String(r.status ?? 'pending'),
-      points_spent: r.points_spent,
-      created_at: r.created_at,
-      reward_title: reward?.title ?? undefined,
-    };
-  });
+  const earnings = (ledgerCredits ?? []).map((e) => ({
+    id: e.id,
+    delta: e.delta,
+    reason: e.reason,
+    created_at: e.created_at,
+  }));
 
   return (
     <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900">
@@ -49,10 +43,7 @@ export default async function HistoryPage() {
           </p>
         </section>
 
-        <HistoryActivityList
-          ledgerEntries={(ledgerEntries ?? []) as { id: string; delta: number; reason: string; ref_type: string | null; ref_id: string | null; created_at: string }[]}
-          redemptions={redemptionsWithTitle}
-        />
+        <HistoryActivityList earnings={earnings} withdrawals={withdrawals} />
       </div>
     </div>
   );

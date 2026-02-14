@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { allowAdminAccess } from '@/lib/utils-server';
@@ -96,6 +97,8 @@ export async function PATCH(request: Request) {
       payload: { user_id: r.user_id, reward_id: r.reward_id, points_spent: r.points_spent },
     });
 
+    revalidatePath('/app/history');
+    revalidatePath('/app/dashboard');
     // TODO: If rejected, optionally refund points (insert ledger +delta)
     return NextResponse.json({ success: true });
   } catch (error) {

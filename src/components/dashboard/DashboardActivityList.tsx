@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
-import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
-
-type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi' | 'İptal';
+import {
+  normalizeWithdrawalStatus,
+  getWithdrawalStatusUI,
+  getWithdrawalBadgeClass,
+  type WithdrawalStatus,
+} from '@/lib/withdrawalStatus';
+import type { WithdrawalRow } from '@/server/queries/withdrawals';
 
 type ActivityItem = {
   id: string;
@@ -10,7 +14,8 @@ type ActivityItem = {
   source: string;
   amount: number;
   date: string;
-  status: RedemptionStatusLabel;
+  created_at: string;
+  status: WithdrawalStatus;
 };
 
 function mapReasonToSource(reason: string): string {
@@ -26,52 +31,53 @@ function mapReasonToSource(reason: string): string {
   return 'Diğer';
 }
 
-
-type LedgerEntry = {
+type EarningsEntry = {
   id: string;
   delta: number;
   reason: string;
-  ref_type: string | null;
-  ref_id: string | null;
-  created_at: string;
-};
-
-type RedemptionRow = {
-  id: string;
-  status: string;
-  points_spent: number;
   created_at: string;
 };
 
 export default function DashboardActivityList({
-  ledgerEntries,
-  redemptionsById,
+  earnings,
+  withdrawals,
 }: {
-  ledgerEntries: LedgerEntry[];
-  redemptionsById: Record<string, RedemptionRow>;
+  earnings: EarningsEntry[];
+  withdrawals: WithdrawalRow[];
 }) {
-  const items: ActivityItem[] = ledgerEntries.slice(0, 5).map((e) => {
-    const isCredit = e.delta > 0;
-    const status: RedemptionStatusLabel =
-      e.ref_type === 'redemption' && e.ref_id && redemptionsById[String(e.ref_id)]
-        ? getRedemptionStatusLabel(redemptionsById[String(e.ref_id)].status)
-        : e.delta > 0
-          ? 'Tamamlandı'
-          : 'Beklemede';
-    return {
-      id: e.id,
-      type: isCredit ? 'kazanç' : 'çekim',
-      source: mapReasonToSource(e.reason),
-      amount: Math.abs(e.delta),
-      date: new Date(e.created_at).toLocaleString('tr-TR', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      status,
-    };
-  });
+  const earningsItems: ActivityItem[] = earnings.map((e) => ({
+    id: `earn-${e.id}`,
+    type: 'kazanç' as const,
+    source: mapReasonToSource(e.reason),
+    amount: e.delta,
+    date: new Date(e.created_at).toLocaleString('tr-TR', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    created_at: e.created_at,
+    status: 'paid' as WithdrawalStatus,
+  }));
+
+  const withdrawalItems: ActivityItem[] = withdrawals.map((w) => ({
+    id: `wd-${w.id}`,
+    type: 'çekim' as const,
+    source: w.reward_title ?? 'Çekim',
+    amount: w.points,
+    date: new Date(w.created_at).toLocaleString('tr-TR', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    created_at: w.created_at,
+    status: normalizeWithdrawalStatus(w.status),
+  }));
+
+  const items = [...earningsItems, ...withdrawalItems]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
@@ -128,9 +134,9 @@ export default function DashboardActivityList({
                   {item.type === 'kazanç' ? '+' : '-'}{formatPoints(item.amount)}
                 </span>
                 <span
-                  className={`px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
+                  className={`px-2 py-0.5 text-xs font-medium rounded ${getWithdrawalBadgeClass(getWithdrawalStatusUI(item.status).badgeVariant)}`}
                 >
-                  {item.status}
+                  {getWithdrawalStatusUI(item.status).label}
                 </span>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { getPointsSummary } from '@/lib/points-ledger';
+import { getUserWithdrawals } from '@/server/queries/withdrawals';
 import Link from 'next/link';
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import DashboardActivityList from '@/components/dashboard/DashboardActivityList';
@@ -21,14 +22,10 @@ export default async function DashboardPage() {
   todayStart.setHours(0, 0, 0, 0);
   const isoToday = todayStart.toISOString();
 
-  const redemptionIds = (recentEntries ?? [])
-    .filter((e) => e.ref_type === 'redemption' && e.ref_id)
-    .map((e) => e.ref_id!);
-
   const [
     { data: todayRows },
     { data: pendingRedemptions },
-    { data: userRedemptions, error: userRedemptionsError },
+    withdrawals,
   ] = await Promise.all([
     supabase
       .from('points_ledger')
@@ -40,46 +37,15 @@ export default async function DashboardPage() {
       .select('points_spent')
       .eq('user_id', user.id)
       .eq('status', 'pending'),
-    supabase
-      .from('redemptions')
-      .select('id, status, points_spent, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50),
+    getUserWithdrawals(user.id, { limit: 10 }),
   ]);
 
   const earnToday = (todayRows ?? []).filter((r) => r.delta > 0).reduce((s, r) => s + r.delta, 0);
   const pendingEarnings = (pendingRedemptions ?? []).reduce((s, r) => s + r.points_spent, 0);
+  const lastWithdrawalStatus = withdrawals[0]?.status ?? null;
 
-  const reds = userRedemptionsError ? [] : (userRedemptions ?? []);
-  const lastRedemptionStatus = reds[0]?.status ?? null;
-
-  const redemptionsById: Record<string, { id: string; status: string; points_spent: number; created_at: string }> = {};
-  reds.forEach((r) => {
-    redemptionsById[String(r.id)] = {
-      id: String(r.id),
-      status: r.status,
-      points_spent: r.points_spent,
-      created_at: r.created_at,
-    };
-  });
-  const missingIds = redemptionIds.filter((id) => !redemptionsById[id]);
-  if (missingIds.length > 0) {
-    const { data: extra, error: extraError } = await supabase
-      .from('redemptions')
-      .select('id, status, points_spent, created_at')
-      .in('id', missingIds);
-    if (!extraError && extra) {
-      extra.forEach((r) => {
-        redemptionsById[String(r.id)] = {
-          id: String(r.id),
-          status: r.status,
-          points_spent: r.points_spent,
-          created_at: r.created_at,
-        };
-      });
-    }
-  }
+  const recentWithdrawals = withdrawals.slice(0, 5);
+  const earningsOnly = (recentEntries ?? []).filter((e) => e.delta > 0);
 
   return (
     <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900">
@@ -97,7 +63,7 @@ export default async function DashboardPage() {
           balance={totalPoints}
           todayEarned={earnToday}
           pendingEarnings={pendingEarnings}
-          lastRedemptionStatus={lastRedemptionStatus}
+          lastRedemptionStatus={lastWithdrawalStatus}
         />
 
         <div className="flex flex-wrap gap-3">
@@ -116,8 +82,8 @@ export default async function DashboardPage() {
         </div>
 
         <DashboardActivityList
-          ledgerEntries={recentEntries ?? []}
-          redemptionsById={redemptionsById}
+          earnings={earningsOnly}
+          withdrawals={recentWithdrawals}
         />
       </div>
     </div>

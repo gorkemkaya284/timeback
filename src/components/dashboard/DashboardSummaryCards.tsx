@@ -1,5 +1,9 @@
 import { formatPoints, formatTry, pointsToTry } from '@/lib/currency';
-import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
+import {
+  normalizeWithdrawalStatus,
+  getWithdrawalStatusUI,
+  getWithdrawalBadgeClass,
+} from '@/lib/withdrawalStatus';
 
 type Props = {
   balance: number;
@@ -51,9 +55,9 @@ export default function DashboardSummaryCards({
         </p>
         {lastRedemptionStatus ? (
           <span
-            className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(getRedemptionStatusLabel(lastRedemptionStatus))}`}
+            className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${getWithdrawalBadgeClass(getWithdrawalStatusUI(normalizeWithdrawalStatus(lastRedemptionStatus)).badgeVariant)}`}
           >
-            {getRedemptionStatusLabel(lastRedemptionStatus)}
+            {getWithdrawalStatusUI(normalizeWithdrawalStatus(lastRedemptionStatus)).label}
           </span>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">—</p>

@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
+import {
+  normalizeWithdrawalStatus,
+  getWithdrawalStatusUI,
+  getWithdrawalBadgeClass,
+} from '@/lib/withdrawalStatus';
 
 type Redemption = {
   id: string;
@@ -83,8 +87,8 @@ export default function AdminRedemptionsTable() {
                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.reward_id}</td>
                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.points_spent}</td>
                 <td className="px-4 py-2">
-                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(getRedemptionStatusLabel(r.status))}`}>
-                    {getRedemptionStatusLabel(r.status)}
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getWithdrawalBadgeClass(getWithdrawalStatusUI(normalizeWithdrawalStatus(r.status)).badgeVariant)}`}>
+                    {getWithdrawalStatusUI(normalizeWithdrawalStatus(r.status)).label}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{new Date(r.created_at).toLocaleString('tr-TR')}</td>
