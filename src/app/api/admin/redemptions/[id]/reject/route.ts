@@ -7,7 +7,7 @@ import type { Json } from '@/types/database.types';
 /**
  * POST /api/admin/redemptions/:id/reject
  * Body: { reason?: string }
- * Sets status=rejected. Reverses points (ledger credit). Logs admin_actions.
+ * tb_reward_redemptions: status=rejected. Ledger reversal (+cost_points credit). Log admin_actions.
  */
 export async function POST(
   request: Request,
@@ -33,43 +33,51 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const reason = body.reason?.trim();
+    const reason = (body.reason as string)?.trim() ?? null;
 
     const { data: row, error: updateError } = await admin
-      .from('reward_redemptions')
+      .from('tb_reward_redemptions')
       .update({
         status: 'rejected',
         reviewed_by: user.id,
         reviewed_at: new Date().toISOString(),
-        note: reason || undefined,
       })
       .eq('id', id)
       .eq('status', 'pending')
       .select('user_id, cost_points')
       .single();
 
-    if (updateError || !row) {
+    if (updateError) {
+      console.error('[admin/redemptions/reject] update error:', { code: updateError.code, message: updateError.message, details: updateError.details, hint: updateError.hint });
+      return NextResponse.json(
+        { error: updateError.message, code: (updateError as { code?: string }).code },
+        { status: 500 }
+      );
+    }
+
+    if (!row) {
       return NextResponse.json({ error: 'Redemption not found or already processed' }, { status: 400 });
     }
 
     const userId = (row as { user_id: string }).user_id;
     const costPoints = (row as { cost_points: number }).cost_points;
 
-    const refId = `admin:redeem_reject:${id}`;
+    const refType = 'redeem_reversal';
+    const refId = id;
 
     const { error: ledgerError } = await admin.from('points_ledger').insert({
       user_id: userId,
       delta: costPoints,
       type: 'credit',
       reason: 'reward_redeem_reversal',
-      ref_type: 'reward_redeem_reversal',
+      ref_type: refType,
       ref_id: refId,
     });
 
     if (ledgerError) {
-      console.error('Admin redemptions reject ledger:', ledgerError);
+      console.error('[admin/redemptions/reject] ledger error:', { code: ledgerError.code, message: ledgerError.message, details: ledgerError.details, hint: ledgerError.hint });
       return NextResponse.json(
-        { error: 'Points reversal failed: ' + ledgerError.message },
+        { error: 'Points reversal failed: ' + ledgerError.message, code: (ledgerError as { code?: string }).code },
         { status: 500 }
       );
     }
@@ -77,14 +85,14 @@ export async function POST(
     await admin.from('admin_actions').insert({
       actor_id: user.id,
       action: 'redeem_reject',
-      target_type: 'reward_redemption',
+      target_type: 'tb_reward_redemption',
       target_id: id,
-      meta: { user_id: userId, cost_points: costPoints, reason: reason ?? null } as Json,
+      meta: { user_id: userId, cost_points: costPoints, reason } as Json,
     });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('Admin redemptions reject:', err);
+    console.error('[admin/redemptions/reject] exception:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

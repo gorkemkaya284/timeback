@@ -273,6 +273,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      tb_reward_redemptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          reward_variant_id: string;
+          cost_points: number;
+          payout_tl: number;
+          status: string;
+          idempotency_key: string;
+          note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          reward_variant_id: string;
+          cost_points: number;
+          payout_tl: number;
+          status?: string;
+          idempotency_key: string;
+          note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          reward_variant_id?: string;
+          cost_points?: number;
+          payout_tl?: number;
+          status?: string;
+          idempotency_key?: string;
+          note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       admin_actions: {
         Row: {
           id: string;
