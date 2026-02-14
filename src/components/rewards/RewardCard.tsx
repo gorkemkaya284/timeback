@@ -1,6 +1,7 @@
 'use client';
 
 import { formatPoints } from '@/lib/utils';
+import { getRewardAvailability, REWARD_AVAILABILITY } from '@/lib/status';
 import RedeemButton from './RedeemButton';
 
 type Reward = {
@@ -8,7 +9,7 @@ type Reward = {
   title: string;
   description: string | null;
   points_cost: number;
-  stock: number;
+  stock: number | null;
   status: string;
   category?: string;
 };
@@ -31,11 +32,12 @@ export default function RewardCard({
   withdrawable: number;
   minPoints: number;
 }) {
+  const availability = getRewardAvailability(reward.status, reward.stock);
   const canRedeem =
+    availability === 'active' &&
     withdrawable >= reward.points_cost &&
-    withdrawable >= minPoints &&
-    reward.stock > 0 &&
-    reward.status === 'active';
+    withdrawable >= minPoints;
+  const { label: availabilityLabel, badgeStyle } = REWARD_AVAILABILITY[availability];
   const category = (reward.category ?? 'other') as keyof typeof CATEGORY_ICONS;
   const icon = CATEGORY_ICONS[category] ?? '✨';
 
@@ -46,9 +48,14 @@ export default function RewardCard({
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-            {reward.title}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+              {reward.title}
+            </h3>
+            <span className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded ${badgeStyle}`}>
+              {availabilityLabel}
+            </span>
+          </div>
           {reward.description && (
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
               {reward.description}
@@ -70,7 +77,7 @@ export default function RewardCard({
           canRedeem={canRedeem}
           withdrawable={withdrawable}
           minPoints={minPoints}
-          isClosed={reward.status !== 'active' || reward.stock <= 0}
+          availability={availability}
         />
       </div>
     </div>

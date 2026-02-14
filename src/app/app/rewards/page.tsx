@@ -70,8 +70,8 @@ export default async function RewardsPage() {
               title: r.title,
               description: r.description ?? null,
               points_cost: r.points_cost,
-              stock: r.stock,
-              status: r.status,
+              stock: r.stock != null ? Number(r.stock) : null,
+              status: r.status ?? 'active',
             }))}
             userPoints={userPoints}
             withdrawable={withdrawable}

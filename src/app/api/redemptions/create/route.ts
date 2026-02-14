@@ -87,31 +87,41 @@ export async function POST(request: Request) {
       );
     }
 
-    const rpc = data as { success?: boolean; error?: string; redemption_id?: string; points_spent?: number; new_points?: number; reward_title?: string } | null;
-    const ok = rpc && (rpc.success === true || (typeof rpc.success !== 'boolean' && rpc.redemption_id != null));
+    const raw = data as unknown;
+    const rpc = Array.isArray(raw) && raw.length > 0 ? raw[0] : raw;
+    const r = rpc as { success?: boolean; error?: string; redemption_id?: unknown; points_spent?: unknown; new_points?: unknown } | null;
+
+    const hasRedemptionId = r?.redemption_id != null && r.redemption_id !== '';
+    const ok = r && (r.success === true || hasRedemptionId);
 
     if (!ok) {
-      const msg = rpc?.error || 'Çekim işlenemedi';
+      const msg = r?.error || 'Çekim işlenemedi';
       return NextResponse.json(
         { success: false, message: msg, code: 'REDEEM_FAILED' },
         { status: 400 }
       );
     }
 
-    const redemptionId = rpc?.redemption_id ?? null;
-    const pointsSpent = rpc?.points_spent ?? required_points;
-    const newPoints = rpc?.new_points ?? Math.max(0, balance - pointsSpent);
+    const pointsSpent = Number(r?.points_spent) || required_points;
+    const newPoints = Number(r?.new_points) || Math.max(0, balance - pointsSpent);
+    const redemptionIdRaw = r?.redemption_id;
+    const redemptionId =
+      redemptionIdRaw != null && redemptionIdRaw !== ''
+        ? String(redemptionIdRaw)
+        : null;
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       redemption: {
         id: redemptionId,
         status: 'pending',
-        points: pointsSpent,
+        points: Number(pointsSpent),
       },
-      newBalance: newPoints,
+      newBalance: Number(newPoints),
       message: 'Çekim talebin alındı',
-    }, { status: 200 });
+    };
+
+    return NextResponse.json(payload, { status: 200 });
   } catch (error) {
     console.error('Redemption error:', error);
     return NextResponse.json(

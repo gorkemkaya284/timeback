@@ -10,7 +10,7 @@ type Reward = {
   title: string;
   description: string | null;
   points_cost: number;
-  stock: number;
+  stock: number | null;
   status: string;
   category?: RewardCategory;
 };

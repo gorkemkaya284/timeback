@@ -38,10 +38,13 @@ export default function AdminRewards() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const stockRaw = formData.get('stock') as string | null;
+    const stockParsed = stockRaw != null && stockRaw !== '' ? parseInt(stockRaw, 10) : NaN;
+    const stock = !isNaN(stockParsed) && stockParsed >= 0 ? stockParsed : 999999;
     const data = {
       title: formData.get('title'),
       points_cost: parseInt(formData.get('points_cost') as string, 10),
-      stock: parseInt(formData.get('stock') as string, 10),
+      stock,
       status: formData.get('status') === 'inactive' ? 'inactive' : 'active',
     };
 
@@ -73,7 +76,7 @@ export default function AdminRewards() {
   };
 
   if (loading) {
-    return <div className="text-gray-500">Loading rewards...</div>;
+    return <div className="text-gray-500 dark:text-gray-400">Ödüller yükleniyor...</div>;
   }
 
   return (
@@ -86,19 +89,19 @@ export default function AdminRewards() {
           }}
           className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800"
         >
-          Create Reward
+          Yeni ödül ekle
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">
-            {editingReward ? 'Edit Reward' : 'Create Reward'}
+            {editingReward ? 'Ödülü düzenle' : 'Yeni ödül oluştur'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Title
+                Başlık
               </label>
               <input
                 type="text"
@@ -111,7 +114,7 @@ export default function AdminRewards() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Points Cost
+                  Puan değeri
                 </label>
                 <input
                   type="number"
@@ -124,29 +127,29 @@ export default function AdminRewards() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Stock
+                  Stok (0 = bitti)
                 </label>
                 <input
                   type="number"
                   name="stock"
-                  required
                   min="0"
-                  defaultValue={editingReward?.stock}
+                  placeholder="Sınırsız için boş bırak"
+                  defaultValue={editingReward?.stock != null && editingReward.stock < 999999 ? editingReward.stock : ''}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Status
+                Durum
               </label>
               <select
                 name="status"
                 defaultValue={editingReward?.status === 'inactive' ? 'inactive' : 'active'}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900"
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="active">Aktif</option>
+                <option value="inactive">Yakında / Kapalı</option>
               </select>
             </div>
             <div className="flex gap-2">
@@ -154,7 +157,7 @@ export default function AdminRewards() {
                 type="submit"
                 className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800"
               >
-                {editingReward ? 'Update' : 'Create'}
+                {editingReward ? 'Güncelle' : 'Oluştur'}
               </button>
               <button
                 type="button"
@@ -164,7 +167,7 @@ export default function AdminRewards() {
                 }}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
               >
-                Cancel
+                İptal
               </button>
             </div>
           </form>
@@ -177,19 +180,19 @@ export default function AdminRewards() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Title
+                  Başlık
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Points Cost
+                  Puan
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Stock
+                  Stok
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
+                  Durum
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Actions
+                  İşlemler
                 </th>
               </tr>
             </thead>
@@ -200,10 +203,12 @@ export default function AdminRewards() {
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {reward.points_cost}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{reward.stock}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                    {reward.stock >= 999999 ? 'Sınırsız' : reward.stock}
+                  </td>
                   <td className="px-6 py-4 text-sm">
-                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                      {reward.status}
+                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded">
+                      {reward.status === 'active' ? 'Aktif' : 'Kapalı'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
@@ -211,7 +216,7 @@ export default function AdminRewards() {
                       onClick={() => handleEdit(reward)}
                       className="text-gray-600 hover:text-gray-900"
                     >
-                      Edit
+                      Düzenle
                     </button>
                   </td>
                 </tr>

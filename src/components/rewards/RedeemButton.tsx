@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+type RewardAvailability = 'active' | 'out_of_stock' | 'coming_soon';
+
 export default function RedeemButton({
   rewardId,
   pointsCost,
@@ -10,7 +12,7 @@ export default function RedeemButton({
   withdrawable,
   minPoints,
   compact,
-  isClosed,
+  availability = 'active',
   onError,
 }: {
   rewardId: number;
@@ -19,7 +21,7 @@ export default function RedeemButton({
   withdrawable: number;
   minPoints: number;
   compact?: boolean;
-  isClosed?: boolean;
+  availability?: RewardAvailability;
   onError?: (message: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -35,11 +37,15 @@ export default function RedeemButton({
   const insufficientMin = balance < minPts;
   const insufficientForReward = balance >= minPts && balance < required_points;
 
-  let buttonText = 'Çek';
-  let disabled = loading || isClosed;
+  const isUnavailable = availability !== 'active';
 
-  if (isClosed) {
+  let buttonText = 'Çek';
+  let disabled = loading || isUnavailable;
+
+  if (availability === 'coming_soon') {
     buttonText = 'Yakında';
+  } else if (availability === 'out_of_stock') {
+    buttonText = 'Stok bitti';
   } else if (balanceLoading) {
     buttonText = 'Bakiye yükleniyor';
     disabled = true;
