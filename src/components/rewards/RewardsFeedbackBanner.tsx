@@ -12,7 +12,7 @@ export default function RewardsFeedbackBanner() {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
     if (success === '1') {
-      setMessage({ type: 'success', text: "Talebin alındı. Durumu 'Geçmiş' sayfasından takip edebilirsin." });
+      setMessage({ type: 'success', text: "Çekim talebin alındı. Durumu 'Geçmiş' sayfasından takip edebilirsin." });
     } else if (error) {
       setMessage({ type: 'error', text: decodeURIComponent(error) });
     } else {

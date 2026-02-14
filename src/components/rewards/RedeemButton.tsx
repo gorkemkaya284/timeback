@@ -73,21 +73,27 @@ export default function RedeemButton({
         body: JSON.stringify({ rewardId }),
       });
 
-      const data = await response.json();
-      const errMsg = data.error || 'Talep işlenemedi';
+      let data: { success?: boolean; error?: string } = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { success: false, error: 'Yanıt okunamadı' };
+      }
 
-      if (!response.ok) {
+      const isSuccess = response.ok && data.success === true;
+
+      if (isSuccess) {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/app/rewards?success=1');
+        }, 800);
+      } else {
+        const errMsg = data?.error || 'Talep işlenemedi';
         setError(errMsg);
         onError?.(errMsg);
         router.push(`/app/rewards?error=${encodeURIComponent(errMsg)}`);
         setLoading(false);
-        return;
       }
-
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/app/rewards?success=1');
-      }, 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Bir hata oluştu';
       setError(msg);
