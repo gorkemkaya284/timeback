@@ -10,6 +10,7 @@ export default function RewardCardV2({
   userPoints,
   withdrawable,
   minPoints,
+  redeemEnabled = true,
   onSuccess,
   onError,
 }: {
@@ -18,6 +19,7 @@ export default function RewardCardV2({
   userPoints: number;
   withdrawable: number;
   minPoints: number;
+  redeemEnabled?: boolean;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
@@ -28,6 +30,7 @@ export default function RewardCardV2({
   const balance = Math.max(0, Number(withdrawable) || 0);
   const requiredPoints = variant.cost_points;
   const canRedeem =
+    redeemEnabled &&
     balance >= minPoints &&
     balance >= requiredPoints &&
     (variant.stock === null || variant.stock > 0);
@@ -35,7 +38,7 @@ export default function RewardCardV2({
   const disabled = loading || !canRedeem || success;
 
   const handleRedeem = async () => {
-    if (disabled || loading) return;
+    if (disabled || loading || !redeemEnabled) return;
     setLoading(true);
     setError('');
     onError('');
@@ -73,24 +76,45 @@ export default function RewardCardV2({
     }
   };
 
+  const buttonLabel = !redeemEnabled
+    ? 'Yakında'
+    : loading
+      ? 'İşleniyor...'
+      : success
+        ? '✓ Talebin alındı'
+        : canRedeem
+          ? 'Çek'
+          : 'Yetersiz bakiye';
+
   return (
     <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
       <div className="flex flex-col gap-2">
-        <div className="text-sm font-medium text-gray-900 dark:text-white">
-          {variant.denomination_tl} TL = {formatPoints(variant.cost_points)} P
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-semibold text-gray-900 dark:text-white">
+            {variant.denomination_tl} TL
+          </span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            = {formatPoints(variant.cost_points)} P
+          </span>
         </div>
         <button
           type="button"
           onClick={handleRedeem}
           disabled={disabled}
-          title={!canRedeem ? `En az ${formatPoints(requiredPoints)} puan gerekir` : undefined}
+          title={
+            !redeemEnabled
+              ? 'Ödüller yakında aktif olacak'
+              : !canRedeem
+                ? `En az ${formatPoints(requiredPoints)} puan gerekir`
+                : undefined
+          }
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             canRedeem && !loading && !success
               ? 'bg-green-600 hover:bg-green-700 text-white'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
           }`}
         >
-          {loading ? 'İşleniyor...' : success ? '✓ Talebin alındı' : canRedeem ? 'Çek' : 'Yetersiz bakiye'}
+          {buttonLabel}
         </button>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       </div>

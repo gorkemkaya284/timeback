@@ -32,12 +32,14 @@ export default function RewardsListV2({
   userPoints,
   withdrawable,
   minPoints,
+  redeemEnabled = true,
 }: {
   rewards: RewardV2[];
   variants: RewardVariantV2[];
   userPoints: number;
   withdrawable: number;
   minPoints: number;
+  redeemEnabled?: boolean;
 }) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -57,6 +59,15 @@ export default function RewardsListV2({
 
   return (
     <div className="space-y-4">
+      {!redeemEnabled && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+        >
+          Ödüller yakında aktif olacak. Şimdilik bakiye biriktir.
+        </div>
+      )}
+
       {successToast && (
         <div
           role="alert"
@@ -67,7 +78,7 @@ export default function RewardsListV2({
       )}
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Henüz çekim seçeneği yok. Bakiye biriktir, yakında açılır.
           </p>
@@ -91,6 +102,7 @@ export default function RewardsListV2({
                     userPoints={userPoints}
                     withdrawable={withdrawable}
                     minPoints={minPoints}
+                    redeemEnabled={redeemEnabled}
                     onSuccess={() => setSuccessToast('Talebin alındı (beklemede)')}
                     onError={(msg) => setSuccessToast(null)}
                   />

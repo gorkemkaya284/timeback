@@ -2,7 +2,8 @@ import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { getPointsSummary } from '@/lib/points-ledger';
-import { MIN_REDEMPTION_POINTS } from '@/config/rewards';
+import { MIN_REDEMPTION_POINTS, REDEEM_ENABLED } from '@/config/rewards';
+import { FALLBACK_REWARDS, FALLBACK_VARIANTS } from '@/config/rewards-fallback';
 import RewardsFeedbackBanner from '@/components/rewards/RewardsFeedbackBanner';
 import RewardsListV2 from '@/components/rewards/RewardsListV2';
 import WithdrawBalanceBar from '@/components/rewards/WithdrawBalanceBar';
@@ -16,31 +17,39 @@ export default async function RewardsPage() {
   const { ensureProfile } = await import('@/lib/supabase/profile');
   await ensureProfile(user.id);
 
-  const { data: rewards } = await supabase
+  let rewardsList = FALLBACK_REWARDS;
+  let variantsList = FALLBACK_VARIANTS;
+
+  const { data: rewards, error: rewardsError } = await supabase
     .from('rewards')
     .select('*')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
-  const { data: variants } = await supabase
+  const { data: variants, error: variantsError } = await supabase
     .from('reward_variants')
     .select('*')
     .eq('is_active', true)
     .order('denomination_tl', { ascending: true });
 
+  if (!rewardsError && !variantsError && rewards?.length) {
+    rewardsList = rewards as typeof FALLBACK_REWARDS;
+    variantsList = (variants ?? []) as typeof FALLBACK_VARIANTS;
+  }
+
   const { totalPoints: userPoints } = await getPointsSummary(user.id);
 
+  let pendingPoints = 0;
   const { data: pendingRedemptions } = await supabase
     .from('reward_redemptions')
     .select('cost_points')
     .eq('user_id', user.id)
     .eq('status', 'pending');
 
-  const pendingPoints = (pendingRedemptions ?? []).reduce((s, r) => s + (r.cost_points ?? 0), 0);
+  if (pendingRedemptions) {
+    pendingPoints = pendingRedemptions.reduce((s, r) => s + (r.cost_points ?? 0), 0);
+  }
   const withdrawable = Math.max(0, userPoints - pendingPoints);
-
-  const rewardsList = rewards ?? [];
-  const variantsList = variants ?? [];
 
   return (
     <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900">
@@ -73,6 +82,7 @@ export default async function RewardsPage() {
           userPoints={userPoints}
           withdrawable={withdrawable}
           minPoints={MIN_REDEMPTION_POINTS}
+          redeemEnabled={REDEEM_ENABLED}
         />
 
         <SonCekimler />
