@@ -55,6 +55,11 @@ export async function POST(request: Request) {
         details: err.details,
         hint: err.hint,
       });
+      // Ensure error.code / message / details / hint are logged (for debugging function/uuid issues)
+      if (err.code) console.error('[redeem] error.code:', err.code);
+      if (err.message) console.error('[redeem] error.message:', err.message);
+      if (err.details) console.error('[redeem] error.details:', err.details);
+      if (err.hint) console.error('[redeem] error.hint:', err.hint);
       return NextResponse.json(
         { ok: false, message: err.message ?? 'Çekim işlenemedi', code: err.code },
         { status: 500 }
