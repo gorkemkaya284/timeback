@@ -37,11 +37,19 @@ export async function POST() {
   }
 
   const variant = variants[0];
+  const variantId = variant?.id;
+  if (!variantId || typeof variantId !== 'string') {
+    return NextResponse.json({ error: 'No variant id' }, { status: 500 });
+  }
+  const { isValidUuid } = await import('@/lib/utils');
+  if (!isValidUuid(variantId)) {
+    return NextResponse.json({ error: 'Variant id is not a UUID' }, { status: 400 });
+  }
 
   const idempotencyKey = crypto.randomUUID();
 
   const { data, error } = await supabase.rpc('redeem_reward', {
-    p_variant_id: variant.id,
+    p_variant_id: variantId,
     p_idempotency_key: idempotencyKey,
     p_note: 'system_check',
   });

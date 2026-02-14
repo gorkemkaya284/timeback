@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { canUserAct } from '@/lib/utils-server';
+import { isValidUuid } from '@/lib/utils';
 
 /**
  * POST /api/rewards/redeem
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
 
     if (!variantId || typeof variantId !== 'string') {
       return NextResponse.json({ ok: false, message: 'variantId gerekli' }, { status: 400 });
+    }
+    if (!isValidUuid(variantId)) {
+      return NextResponse.json(
+        { ok: false, message: 'Geçersiz ödül seçeneği. Lütfen sayfayı yenileyin.', code: 'INVALID_VARIANT_ID' },
+        { status: 400 }
+      );
     }
     if (!idempotencyKey || typeof idempotencyKey !== 'string') {
       return NextResponse.json({ ok: false, message: 'idempotencyKey gerekli' }, { status: 400 });

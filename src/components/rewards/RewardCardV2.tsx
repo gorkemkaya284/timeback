@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatPoints } from '@/lib/utils';
+import { formatPoints, isValidUuid } from '@/lib/utils';
 import { getBrandConfig } from '@/config/reward-brands';
 import type { RewardV2, RewardVariantV2 } from './RewardsListV2';
 
@@ -43,6 +43,10 @@ export default function RewardCardV2({
 
   const handleRedeem = async () => {
     if (disabled || loading || !redeemEnabled) return;
+    if (!isValidUuid(variant.id)) {
+      onError('Bu ödül şu an talep edilemez.');
+      return;
+    }
     setLoading(true);
     setError('');
     onError('');

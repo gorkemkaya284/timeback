@@ -28,7 +28,7 @@ export default async function RewardsPage() {
 
   const { data: variants, error: variantsError } = await supabase
     .from('reward_variants')
-    .select('*')
+    .select('id, reward_id, denomination_tl, cost_points, stock, daily_limit_per_user, min_account_age_days, is_active, created_at')
     .eq('is_active', true)
     .order('denomination_tl', { ascending: true });
 

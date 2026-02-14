@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** True if string is a valid UUID (e.g. reward_variants.id from DB). Reject slugs like 'fb-gp-50'. */
+export function isValidUuid(s: string | null | undefined): boolean {
+  if (typeof s !== 'string' || !s) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(s.trim());
+}
+
 /**
  * Calculate total points from ledger entries.
  * 

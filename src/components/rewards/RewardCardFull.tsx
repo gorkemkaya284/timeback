@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { formatPoints } from '@/lib/utils';
+import { formatPoints, isValidUuid } from '@/lib/utils';
 import { getBrandConfig } from '@/config/reward-brands';
 import type { RewardV2, RewardVariantV2 } from './RewardsListV2';
 
@@ -36,6 +36,11 @@ export default function RewardCardFull({
   const handleRedeem = async () => {
     if (!redeemEnabled) return;
     if (loading || success) return;
+
+    if (!isValidUuid(selectedVariant.id)) {
+      onError('Bu ödül şu an talep edilemez. Veritabanı bağlantısı gerekli.');
+      return;
+    }
 
     if (balance < minPoints) {
       onInsufficientBalance(`Minimum çekim: ${formatPoints(minPoints)} P`);
