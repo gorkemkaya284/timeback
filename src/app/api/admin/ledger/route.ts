@@ -3,6 +3,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { allowAdminAccess } from '@/lib/utils-server';
 import { writeAuditLog } from '@/lib/admin-audit';
+import { logUserIp } from '@/lib/user-ip-log';
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -145,6 +146,8 @@ export async function POST(request: Request) {
       target_id: userId,
       payload: { amount: amt, reason, ledger_id: ledgerId },
     });
+
+    logUserIp({ req: request, userId: user.id, event: 'admin_ledger_adjust' }).catch(() => {});
 
     return NextResponse.json({ ok: true, success: true, ledger_id: ledgerId });
   } catch (err) {

@@ -3,6 +3,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { allowAdminAccess } from '@/lib/utils-server';
 import { writeAuditLog } from '@/lib/admin-audit';
+import { logUserIp } from '@/lib/user-ip-log';
 
 /**
  * POST /api/admin/ledger/adjust
@@ -10,6 +11,9 @@ import { writeAuditLog } from '@/lib/admin-audit';
  * Server-side only; uses Supabase service role.
  */
 export async function POST(request: Request) {
+  const logAdminIp = (userId: string) => {
+    logUserIp({ req: request, userId, event: 'admin_ledger_adjust' }).catch(() => {});
+  };
   try {
     const user = await getCurrentUser();
     if (!user || !(await allowAdminAccess(user))) {
@@ -102,6 +106,8 @@ export async function POST(request: Request) {
       target_id: userId,
       payload: { points_delta: pointsDelta, reason, note, source_event_id: sourceEventId, ledger_id: ledgerId },
     });
+
+    logAdminIp(user.id);
 
     return NextResponse.json({ ok: true, ledger_id: ledgerId });
   } catch (err) {

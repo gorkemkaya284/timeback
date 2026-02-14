@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { ensureProfile } from '@/lib/supabase/profile';
+import { logUserIp } from '@/lib/user-ip-log';
 import { requireSupabaseEnv } from '@/lib/env';
 import { Database } from '@/types/database.types';
 
@@ -76,6 +77,11 @@ export async function GET(request: Request) {
       } catch (error) {
         console.error('Profile creation error:', error);
         // Continue anyway - profile might already exist
+      }
+      try {
+        await logUserIp({ req: request, userId: data.user.id, event: 'login' });
+      } catch {
+        // Non-blocking
       }
     }
 

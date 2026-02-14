@@ -81,6 +81,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_ip_logs: {
+        Row: {
+          id: number;
+          user_id: string;
+          event: string;
+          ip: string | null;
+          user_agent: string | null;
+          path: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          event: string;
+          ip?: string | null;
+          user_agent?: string | null;
+          path?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          event?: string;
+          ip?: string | null;
+          user_agent?: string | null;
+          path?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       presence_heartbeats: {
         Row: {
           user_id: string;

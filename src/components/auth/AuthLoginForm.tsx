@@ -41,6 +41,16 @@ export default function AuthLoginForm() {
       return;
     }
 
+    try {
+      await fetch('/api/auth/log-activity', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'login' }),
+      });
+    } catch {
+      // Non-blocking
+    }
     window.location.assign('/app/dashboard');
   };
 
