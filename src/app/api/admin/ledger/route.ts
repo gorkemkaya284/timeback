@@ -99,12 +99,20 @@ export async function POST(request: Request) {
     }
 
     const delta = type === 'credit' ? amt : -amt;
+    const ledgerType = delta > 0 ? 'credit' : 'debit';
     const reason = type === 'credit' ? 'admin_credit' : 'admin_debit';
-    const refId = `admin:${crypto.randomUUID()}`;
+    const sourceEventId = `admin:${crypto.randomUUID()}`;
 
     const { data, error } = await adminClient
       .from('points_ledger')
-      .insert({ user_id: userId, delta, reason, ref_type: 'admin_adjustment', ref_id: refId })
+      .insert({
+        user_id: userId,
+        delta,
+        type: ledgerType,
+        reason,
+        ref_type: 'admin_adjustment',
+        ref_id: sourceEventId,
+      })
       .select('id')
       .limit(1);
 
@@ -120,7 +128,7 @@ export async function POST(request: Request) {
           ? 'User not found in profiles. Create profile first.'
           : error.code === '23505'
             ? 'Duplicate adjustment. Retry.'
-            : error.message || 'Failed to create ledger entry';
+            : error.message;
       return NextResponse.json(
         { ok: false, code: error.code ?? 'db_error', message: userMessage },
         { status: 500 }

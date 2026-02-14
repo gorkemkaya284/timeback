@@ -27,6 +27,7 @@ export async function POST() {
   const { error } = await admin.from('points_ledger').insert({
     user_id: user.id,
     delta: 100,
+    type: 'credit',
     reason: 'system_check_seed',
     ref_type: 'system_check',
     ref_id: null,

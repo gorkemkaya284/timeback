@@ -86,6 +86,7 @@ export interface Database {
           id: string;
           user_id: string;
           delta: number;
+          type: string;
           reason: string;
           ref_type: string | null;
           ref_id: string | null;
@@ -95,6 +96,7 @@ export interface Database {
           id?: string;
           user_id: string;
           delta: number;
+          type: 'credit' | 'debit';
           reason: string;
           ref_type?: string | null;
           ref_id?: string | null;
@@ -104,6 +106,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           delta?: number;
+          type?: 'credit' | 'debit';
           reason?: string;
           ref_type?: string | null;
           ref_id?: string | null;

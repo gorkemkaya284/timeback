@@ -54,20 +54,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const reason = body.reason?.trim() || (pointsDelta > 0 ? 'admin_credit' : 'admin_debit');
+    const type = pointsDelta > 0 ? 'credit' : 'debit';
+    const reason = body.reason?.trim() || (type === 'credit' ? 'admin_credit' : 'admin_debit');
     const note = body.note?.trim() || null;
 
-    const adjustmentId = crypto.randomUUID();
-    const refId = `admin:${adjustmentId}`;
+    const sourceEventId = `admin:${crypto.randomUUID()}`;
 
     const { data, error } = await adminClient
       .from('points_ledger')
       .insert({
         user_id: userId,
         delta: pointsDelta,
+        type,
         reason,
         ref_type: 'admin_adjustment',
-        ref_id: refId,
+        ref_id: sourceEventId,
       })
       .select('id')
       .limit(1);
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
           ? 'User not found in profiles. Create profile first.'
           : error.code === '23505'
             ? 'Duplicate adjustment (unique violation). Retry with different id.'
-            : error.message || 'Failed to create ledger entry';
+            : error.message;
       return NextResponse.json(
         { ok: false, code: error.code ?? 'db_error', message: userMessage },
         { status: 500 }
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
       action: pointsDelta > 0 ? 'credit_points' : 'debit_points',
       target_type: 'user',
       target_id: userId,
-      payload: { points_delta: pointsDelta, reason, note, adjustment_id: adjustmentId, ledger_id: ledgerId },
+      payload: { points_delta: pointsDelta, reason, note, source_event_id: sourceEventId, ledger_id: ledgerId },
     });
 
     return NextResponse.json({ ok: true, ledger_id: ledgerId });

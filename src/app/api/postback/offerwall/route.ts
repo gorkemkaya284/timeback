@@ -113,6 +113,7 @@ export async function POST(request: Request) {
     const { error: ledgerError } = await adminClient.from('points_ledger').insert({
       user_id: parsed.userId,
       delta: parsed.rewardPoints,
+      type: 'credit',
       reason: `Offerwall: ${provider}${parsed.offerId ? ` (${parsed.offerId})` : ''}`,
       ref_type: 'offerwall',
       ref_id: conversion?.id ? String(conversion.id) : txId,
