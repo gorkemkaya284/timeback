@@ -47,8 +47,10 @@ export async function POST() {
   });
 
   if (error) {
+    const err = error as { code?: string; message?: string; details?: string; hint?: string };
+    console.error('Redeem RPC error:', { code: err.code, message: err.message, details: err.details, hint: err.hint });
     return NextResponse.json(
-      { error: error.message ?? 'Redeem failed' },
+      { error: err.message ?? 'Redeem failed', code: err.code },
       { status: 500 }
     );
   }

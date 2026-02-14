@@ -33,10 +33,11 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
 
+    // Named args – signature: redeem_reward(p_variant_id uuid, p_idempotency_key text, p_note text default null)
     const { data, error } = await supabase.rpc('redeem_reward', {
       p_variant_id: variantId,
       p_idempotency_key: idempotencyKey,
-      p_note: note,
+      p_note: note ?? null,
     });
 
     if (error) {
