@@ -12,7 +12,7 @@ export type RewardV2 = {
   image_url: string | null;
   is_active: boolean;
   sort_order: number;
-  created_at: string;
+  created_at?: string;
 };
 
 export type RewardVariantV2 = {
@@ -27,24 +27,23 @@ export type RewardVariantV2 = {
   created_at: string;
 };
 
+type RewardWithVariants = RewardV2 & { variants: RewardVariantV2[] };
+
 type FilterTab = 'all' | 'gift' | 'bank_transfer';
 
 export default function RewardsListV2({
   rewards,
-  variants,
   userPoints,
   withdrawable,
   minPoints,
   redeemEnabled = true,
   useFallback = false,
 }: {
-  rewards: RewardV2[];
-  variants: RewardVariantV2[];
+  rewards: RewardWithVariants[];
   userPoints: number;
   withdrawable: number;
   minPoints: number;
   redeemEnabled?: boolean;
-  /** True when data came from fallback (DB fetch failed). Show "veritabanı bağlantısı gerekli" and disable redeem. */
   useFallback?: boolean;
 }) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -52,23 +51,9 @@ export default function RewardsListV2({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
 
-  const variantsByReward = useMemo(
-    () =>
-      variants.reduce<Record<string, RewardVariantV2[]>>((acc, v) => {
-        const rid = v.reward_id;
-        if (!acc[rid]) acc[rid] = [];
-        acc[rid].push(v);
-        return acc;
-      }, {}),
-    [variants]
-  );
-
   const items = useMemo(() => {
     let list = rewards
-      .map((r) => ({
-        reward: r,
-        variants: variantsByReward[r.id] ?? [],
-      }))
+      .map((r) => ({ reward: r, variants: r.variants ?? [] }))
       .filter((x) => x.variants.length > 0);
 
     if (filter === 'gift') list = list.filter((x) => x.reward.kind === 'gift');
@@ -84,7 +69,7 @@ export default function RewardsListV2({
     }
 
     return list;
-  }, [rewards, variantsByReward, filter, search]);
+  }, [rewards, filter, search]);
 
   return (
     <div className="space-y-4">

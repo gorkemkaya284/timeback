@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { FALLBACK_REWARDS, FALLBACK_VARIANTS } from '@/config/rewards-fallback';
 import RewardsListV2, { type RewardV2, type RewardVariantV2 } from './RewardsListV2';
 
+/** Build rewards with nested variants for fallback (no UUIDs, redeem disabled). */
+function getFallbackRewardsWithVariants(): Array<RewardV2 & { variants: RewardVariantV2[] }> {
+  return FALLBACK_REWARDS.map((r) => ({
+    ...r,
+    variants: FALLBACK_VARIANTS.filter((v) => v.reward_id === r.id),
+  })).filter((r) => r.variants.length > 0);
+}
+
 export default function RewardsPageClient({
   userPoints,
   withdrawable,
@@ -15,8 +23,7 @@ export default function RewardsPageClient({
   minPoints: number;
   redeemEnabled: boolean;
 }) {
-  const [rewards, setRewards] = useState<RewardV2[]>(FALLBACK_REWARDS);
-  const [variants, setVariants] = useState<RewardVariantV2[]>(FALLBACK_VARIANTS);
+  const [rewards, setRewards] = useState<Array<RewardV2 & { variants: RewardVariantV2[] }>>(getFallbackRewardsWithVariants());
   const [useFallback, setUseFallback] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -25,18 +32,16 @@ export default function RewardsPageClient({
     setLoading(true);
     fetch('/api/rewards', { cache: 'no-store' })
       .then((res) => res.json().catch(() => ({})))
-      .then((data: { ok?: boolean; reason?: string; rewardsCount?: number; variantsCount?: number; rewards?: RewardV2[]; variants?: RewardVariantV2[] }) => {
+      .then((data: { ok?: boolean; reason?: string; rewards?: Array<RewardV2 & { variants: RewardVariantV2[] }> }) => {
         if (cancelled) return;
         const ok = data.ok === true;
-        const variantsCount = Number(data.variantsCount ?? 0);
-        const useDb = ok && variantsCount > 0;
-        if (useDb && Array.isArray(data.rewards) && Array.isArray(data.variants)) {
-          setRewards(data.rewards);
-          setVariants(data.variants);
+        const list = Array.isArray(data.rewards) ? data.rewards : [];
+        const useDb = ok && list.length > 0;
+        if (useDb) {
+          setRewards(list);
           setUseFallback(false);
         } else {
-          setRewards(FALLBACK_REWARDS);
-          setVariants(FALLBACK_VARIANTS);
+          setRewards(getFallbackRewardsWithVariants());
           setUseFallback(true);
           if (!ok && data.reason) {
             console.error('[rewards] API error reason:', data.reason, data);
@@ -45,8 +50,7 @@ export default function RewardsPageClient({
       })
       .catch((err) => {
         if (!cancelled) {
-          setRewards(FALLBACK_REWARDS);
-          setVariants(FALLBACK_VARIANTS);
+          setRewards(getFallbackRewardsWithVariants());
           setUseFallback(true);
           console.error('[rewards] Fetch failed:', err);
         }
@@ -72,7 +76,6 @@ export default function RewardsPageClient({
   return (
     <RewardsListV2
       rewards={rewards}
-      variants={variants}
       userPoints={userPoints}
       withdrawable={withdrawable}
       minPoints={minPoints}
