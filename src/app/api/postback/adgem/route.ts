@@ -184,7 +184,11 @@ async function handlePostback(request: Request) {
           console.error('[AdGem postback] Upsert error:', error.message);
         }
       } else {
-        eventId = Array.isArray(data) ? (data[0] as { id?: string } | undefined)?.id : (data as { id?: string } | undefined)?.id;
+        const insertedId =
+          Array.isArray(data)
+            ? (data[0] as { id?: string } | undefined)?.id
+            : (data as { id?: string } | undefined)?.id;
+        eventId = insertedId ?? null;
         if (!eventId) {
           const { data: existing } = await adminClient
             .from('offerwall_events')
