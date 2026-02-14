@@ -3,8 +3,11 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
+import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
 
 type Filter = 'all' | 'earnings' | 'withdrawals' | 'pending';
+
+type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
 
 type ActivityItem = {
   id: string;
@@ -12,14 +15,8 @@ type ActivityItem = {
   type: 'Kazanç' | 'Çekim';
   description: string;
   points: number;
-  status: 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
+  status: RedemptionStatusLabel;
   isPending: boolean;
-};
-
-const STATUS_STYLES = {
-  Tamamlandı: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
-  Beklemede: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
-  Reddedildi: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
 };
 
 function mapReasonToDescription(reason: string): string {
@@ -32,11 +29,6 @@ function mapReasonToDescription(reason: string): string {
   return reason;
 }
 
-function mapRedemptionStatus(s: string): 'Tamamlandı' | 'Beklemede' | 'Reddedildi' {
-  if (s === 'fulfilled') return 'Tamamlandı';
-  if (s === 'rejected') return 'Reddedildi';
-  return 'Beklemede';
-}
 
 type LedgerEntry = {
   id: string;
@@ -68,11 +60,13 @@ export default function HistoryActivityList({
     return ledgerEntries.map((e) => {
       const isCredit = e.delta > 0;
       const redemptionFull = e.ref_type === 'redemption' && e.ref_id
-        ? redemptions.find((r) => String(r.id) === e.ref_id)
+        ? redemptions.find((r) => String(r.id) === String(e.ref_id))
         : null;
-      const status = redemptionFull
-        ? mapRedemptionStatus(redemptionFull.status)
-        : 'Tamamlandı';
+      const status: RedemptionStatusLabel = redemptionFull
+        ? getRedemptionStatusLabel(redemptionFull.status)
+        : isCredit
+          ? 'Tamamlandı'
+          : 'Beklemede';
       const description = isCredit
         ? mapReasonToDescription(e.reason)
         : (redemptionFull?.reward_title ?? mapReasonToDescription(e.reason));
@@ -186,7 +180,7 @@ export default function HistoryActivityList({
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${STATUS_STYLES[item.status]}`}
+                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
                         >
                           {item.status}
                         </span>
@@ -223,7 +217,7 @@ export default function HistoryActivityList({
                         {formatPoints(item.points)}
                       </p>
                       <span
-                        className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded ${STATUS_STYLES[item.status]}`}
+                        className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
                       >
                         {item.status}
                       </span>

@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
+import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
+
+type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
 
 type ActivityItem = {
   id: string;
@@ -7,13 +10,7 @@ type ActivityItem = {
   source: string;
   amount: number;
   date: string;
-  status: 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
-};
-
-const STATUS_STYLES = {
-  Tamamlandı: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
-  Beklemede: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
-  Reddedildi: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
+  status: RedemptionStatusLabel;
 };
 
 function mapReasonToSource(reason: string): string {
@@ -29,11 +26,6 @@ function mapReasonToSource(reason: string): string {
   return 'Diğer';
 }
 
-function mapRedemptionStatus(s: string): 'Tamamlandı' | 'Beklemede' | 'Reddedildi' {
-  if (s === 'fulfilled') return 'Tamamlandı';
-  if (s === 'rejected') return 'Reddedildi';
-  return 'Beklemede';
-}
 
 type LedgerEntry = {
   id: string;
@@ -60,10 +52,12 @@ export default function DashboardActivityList({
 }) {
   const items: ActivityItem[] = ledgerEntries.slice(0, 5).map((e) => {
     const isCredit = e.delta > 0;
-    const status =
-      e.ref_type === 'redemption' && e.ref_id && redemptionsById[e.ref_id]
-        ? mapRedemptionStatus(redemptionsById[e.ref_id].status)
-        : 'Tamamlandı';
+    const status: RedemptionStatusLabel =
+      e.ref_type === 'redemption' && e.ref_id && redemptionsById[String(e.ref_id)]
+        ? getRedemptionStatusLabel(redemptionsById[String(e.ref_id)].status)
+        : e.delta > 0
+          ? 'Tamamlandı'
+          : 'Beklemede';
     return {
       id: e.id,
       type: isCredit ? 'kazanç' : 'çekim',
@@ -134,7 +128,7 @@ export default function DashboardActivityList({
                   {item.type === 'kazanç' ? '+' : '-'}{formatPoints(item.amount)}
                 </span>
                 <span
-                  className={`px-2 py-0.5 text-xs font-medium rounded ${STATUS_STYLES[item.status]}`}
+                  className={`px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(item.status)}`}
                 >
                   {item.status}
                 </span>

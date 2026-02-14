@@ -15,22 +15,22 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ success: false, error: 'Oturum açmanız gerekiyor' }, { status: 401 });
+      return NextResponse.json({ success: false, message: 'Oturum açmanız gerekiyor' }, { status: 401 });
     }
 
     if (!(await canUserAct(user.id))) {
-      return NextResponse.json({ success: false, error: 'Hesabınız kısıtlı' }, { status: 403 });
+      return NextResponse.json({ success: false, message: 'Hesabınız kısıtlı' }, { status: 403 });
     }
 
     const body = await request.json();
     const rewardIdRaw = body.reward_id ?? body.rewardId;
     if (rewardIdRaw == null) {
-      return NextResponse.json({ success: false, error: 'Ödül ID gerekli' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Ödül ID gerekli' }, { status: 400 });
     }
 
     const rewardIdNum = typeof rewardIdRaw === 'string' ? parseInt(rewardIdRaw, 10) : Number(rewardIdRaw);
     if (isNaN(rewardIdNum) || rewardIdNum < 1) {
-      return NextResponse.json({ success: false, error: 'Geçersiz ödül ID' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Geçersiz ödül ID' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -54,22 +54,22 @@ export async function POST(request: Request) {
 
     if (isNaN(balance) || (balance === 0 && typeof rawBalance !== 'number')) {
       return NextResponse.json(
-        { success: false, error: 'Bakiyen okunamadı. Sayfayı yenile.' },
+        { success: false, message: 'Bakiyen okunamadı. Sayfayı yenile.' },
         { status: 400 }
       );
     }
     if (withdrawable < MIN_REDEMPTION_POINTS) {
       return NextResponse.json(
-        { success: false, error: `Minimum çekim: ${MIN_REDEMPTION_POINTS} P` },
+        { success: false, message: `Minimum çekim: ${MIN_REDEMPTION_POINTS} P` },
         { status: 400 }
       );
     }
     if (isNaN(required_points) || required_points < 1) {
-      return NextResponse.json({ success: false, error: 'Ödül bulunamadı' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Ödül bulunamadı' }, { status: 400 });
     }
     if (withdrawable < required_points) {
       return NextResponse.json(
-        { success: false, error: `Yetersiz bakiye. Bu ödül için ${Math.floor(required_points)} P gerekir.` },
+        { success: false, message: `Yetersiz bakiye. Bu ödül için ${Math.floor(required_points)} P gerekir.` },
         { status: 400 }
       );
     }
@@ -82,31 +82,40 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Redeem RPC error:', error);
       return NextResponse.json(
-        { success: false, error: 'Çekim işlenemedi' },
+        { success: false, message: 'Çekim işlenemedi', code: 'RPC_ERROR' },
         { status: 500 }
       );
     }
 
-    const ok = data && (data as { success?: boolean }).success === true;
+    const rpc = data as { success?: boolean; error?: string; redemption_id?: string; points_spent?: number; new_points?: number; reward_title?: string } | null;
+    const ok = rpc && (rpc.success === true || (typeof rpc.success !== 'boolean' && rpc.redemption_id != null));
+
     if (!ok) {
-      const msg = (data as { error?: string })?.error || 'Çekim işlenemedi';
+      const msg = rpc?.error || 'Çekim işlenemedi';
       return NextResponse.json(
-        { success: false, error: msg },
+        { success: false, message: msg, code: 'REDEEM_FAILED' },
         { status: 400 }
       );
     }
 
+    const redemptionId = rpc?.redemption_id ?? null;
+    const pointsSpent = rpc?.points_spent ?? required_points;
+    const newPoints = rpc?.new_points ?? Math.max(0, balance - pointsSpent);
+
     return NextResponse.json({
       success: true,
-      redemptionId: (data as { redemption_id?: string }).redemption_id,
-      pointsSpent: (data as { points_spent?: number }).points_spent,
-      newPoints: (data as { new_points?: number }).new_points,
-      rewardTitle: (data as { reward_title?: string }).reward_title,
-    });
+      redemption: {
+        id: redemptionId,
+        status: 'pending',
+        points: pointsSpent,
+      },
+      newBalance: newPoints,
+      message: 'Çekim talebin alındı',
+    }, { status: 200 });
   } catch (error) {
     console.error('Redemption error:', error);
     return NextResponse.json(
-      { success: false, error: 'Sunucu hatası' },
+      { success: false, message: 'Sunucu hatası' },
       { status: 500 }
     );
   }

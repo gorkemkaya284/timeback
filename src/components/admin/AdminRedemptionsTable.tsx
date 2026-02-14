@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
 
 type Redemption = {
   id: string;
@@ -68,9 +69,10 @@ export default function AdminRedemptionsTable() {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">ID</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">User ID</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Reward ID</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Points</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Created</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Actions</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Puan</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Durum</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tarih</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">İşlemler</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -80,23 +82,28 @@ export default function AdminRedemptionsTable() {
                 <td className="px-4 py-2 text-sm font-mono text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{r.user_id}</td>
                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.reward_id}</td>
                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.points_spent}</td>
-                <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{new Date(r.created_at).toLocaleString()}</td>
+                <td className="px-4 py-2">
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(getRedemptionStatusLabel(r.status))}`}>
+                    {getRedemptionStatusLabel(r.status)}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{new Date(r.created_at).toLocaleString('tr-TR')}</td>
                 <td className="px-4 py-2">
                   <button
                     type="button"
                     onClick={() => openModal(r.id, 'fulfilled')}
-                    title="Mark as fulfilled"
+                    title="Tamamlandı olarak işaretle"
                     className="mr-2 px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
                   >
-                    Fulfill
+                    Onayla
                   </button>
                   <button
                     type="button"
                     onClick={() => openModal(r.id, 'rejected')}
-                    title="Reject request; points are not auto-refunded"
+                    title="Reddet; puan otomatik iade edilmez"
                     className="px-2 py-1 text-xs rounded bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                   >
-                    Reject
+                    Reddet
                   </button>
                 </td>
               </tr>
