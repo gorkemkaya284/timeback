@@ -212,8 +212,10 @@ export interface Database {
           transaction_id: string | null;
           status: string | null;
           reward_points: number | null;
+          payout_tl: number | null;
           raw_payload: Json;
           created_at: string;
+          credited_at: string | null;
         };
         Insert: {
           id?: string;
@@ -222,8 +224,10 @@ export interface Database {
           transaction_id?: string | null;
           status?: string | null;
           reward_points?: number | null;
+          payout_tl?: number | null;
           raw_payload: Json;
           created_at?: string;
+          credited_at?: string | null;
         };
         Update: {
           id?: string;
@@ -232,8 +236,10 @@ export interface Database {
           transaction_id?: string | null;
           status?: string | null;
           reward_points?: number | null;
+          payout_tl?: number | null;
           raw_payload?: Json;
           created_at?: string;
+          credited_at?: string | null;
         };
         Relationships: [];
       };
@@ -335,6 +341,14 @@ export interface Database {
       redeem_reward: {
         Args: { p_user_id: string; p_reward_id: string | number };
         Returns: { success: boolean; error?: string; redemption_id?: string; points_spent?: number; new_points?: number; reward_title?: string } | null;
+      };
+      credit_offerwall_event: {
+        Args: {
+          p_event_id: string;
+          p_credit_enabled: boolean;
+          p_test_allowlist?: string[];
+        };
+        Returns: { success: boolean; error?: string; skipped?: string; credited?: boolean; user_id?: string; points?: number; provider?: string } | null;
       };
     };
     Enums: Record<string, never>;

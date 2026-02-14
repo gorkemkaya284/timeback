@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
+import { creditOfferwallEvent } from '@/lib/offerwall/credit-engine';
 import type { Json } from '@/types/database.types';
 
 const SECRET_KEYS = ['sig', 'signature', 'secret', 'key', 'password', 'token'];
@@ -37,6 +38,19 @@ function extractNumber(payload: Record<string, unknown>, keys: string[]): number
     }
   }
   return null;
+}
+
+function extractPayoutTl(payload: Record<string, unknown>): number | null {
+  for (const k of ['payout_tl', 'payout', 'amount_tl', 'amount']) {
+    const v = payload[k];
+    if (typeof v === 'number' && !isNaN(v) && v > 0) return v;
+    if (typeof v === 'string') {
+      const n = parseFloat(v);
+      if (!isNaN(n) && n > 0) return n;
+    }
+  }
+  const pts = extractNumber(payload, ['points', 'reward', 'amount']);
+  return pts != null ? pts * 0.01 : null;
 }
 
 function parsePayload(request: Request): Promise<Record<string, unknown>> {
@@ -119,6 +133,7 @@ async function handlePostback(request: Request) {
     const transactionId = transactionIdRaw ? String(transactionIdRaw).trim() : '';
     const rewardPoints = extractNumber(payload, ['points', 'reward', 'amount']);
     const status = extractString(payload, ['status', 'event']);
+    const payoutTl = extractPayoutTl(payload);
 
     const userId = userIdRaw && UUID_REGEX.test(userIdRaw) ? userIdRaw : null;
 
@@ -136,10 +151,11 @@ async function handlePostback(request: Request) {
       transaction_id: transactionId || null,
       status: status || null,
       reward_points: rewardPoints,
+      payout_tl: payoutTl,
       raw_payload: rawPayload,
     };
 
-    let inserted = false;
+    let eventId: string | null = null;
     if (transactionId) {
       const { data, error } = await adminClient
         .from('offerwall_events')
@@ -147,11 +163,19 @@ async function handlePostback(request: Request) {
           onConflict: 'provider,transaction_id',
           ignoreDuplicates: true,
         })
-        .select('id');
+        .select('id')
+        .single();
 
       if (error) {
         if (error.code === '23505') {
-          console.log('[AdGem postback] Duplicate (provider, transaction_id); skipped');
+          const { data: existing } = await adminClient
+            .from('offerwall_events')
+            .select('id')
+            .eq('provider', 'adgem')
+            .eq('transaction_id', transactionId)
+            .maybeSingle();
+          eventId = existing?.id ?? null;
+          console.log('[AdGem postback] Duplicate (provider, transaction_id); skipped insert');
         } else if (error.code === '42P01') {
           console.warn('[AdGem postback] Table offerwall_events missing. Run supabase_offerwall_events.sql');
         } else if (error.code === '42P10') {
@@ -160,11 +184,20 @@ async function handlePostback(request: Request) {
           console.error('[AdGem postback] Upsert error:', error.message);
         }
       } else {
-        inserted = Array.isArray(data) ? data.length > 0 : !!data;
-        console.log(inserted ? '[AdGem postback] Inserted' : '[AdGem postback] Duplicate (provider, transaction_id); skipped');
+        eventId = Array.isArray(data) ? (data[0] as { id?: string } | undefined)?.id : (data as { id?: string } | undefined)?.id;
+        if (!eventId) {
+          const { data: existing } = await adminClient
+            .from('offerwall_events')
+            .select('id')
+            .eq('provider', 'adgem')
+            .eq('transaction_id', transactionId)
+            .maybeSingle();
+          eventId = existing?.id ?? null;
+        }
+        console.log(eventId ? '[AdGem postback] Inserted' : '[AdGem postback] Duplicate (provider, transaction_id); skipped');
       }
     } else {
-      const { data, error } = await adminClient.from('offerwall_events').insert(row).select('id');
+      const { data, error } = await adminClient.from('offerwall_events').insert(row).select('id').single();
 
       if (error) {
         if (error.code === '42P01') {
@@ -173,8 +206,16 @@ async function handlePostback(request: Request) {
           console.error('[AdGem postback] Insert error:', error.message);
         }
       } else {
-        inserted = Array.isArray(data) ? data.length > 0 : !!data;
-        console.log(inserted ? '[AdGem postback] Inserted (no transaction_id; no idempotency)' : '[AdGem postback] Insert failed');
+        eventId = data?.id ?? null;
+        console.log(eventId ? '[AdGem postback] Inserted (no transaction_id; no idempotency)' : '[AdGem postback] Insert failed');
+      }
+    }
+
+    if (eventId) {
+      try {
+        await creditOfferwallEvent(eventId);
+      } catch (creditErr) {
+        console.error('[AdGem postback] Credit engine error:', creditErr);
       }
     }
 

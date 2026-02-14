@@ -8,8 +8,10 @@ CREATE TABLE IF NOT EXISTS public.offerwall_events (
   transaction_id TEXT NULL,
   status TEXT NULL,
   reward_points INTEGER NULL,
+  payout_tl NUMERIC(12,4) NULL,
   raw_payload JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  credited_at TIMESTAMPTZ NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS offerwall_events_provider_transaction_id_uniq
