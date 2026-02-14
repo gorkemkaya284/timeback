@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS public.offerwall_events (
   status TEXT NULL,
   reward_points INTEGER NULL,
   raw_payload JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (provider, transaction_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS offerwall_events_provider_transaction_id_uniq
+  ON public.offerwall_events (provider, transaction_id)
+  WHERE transaction_id IS NOT NULL;

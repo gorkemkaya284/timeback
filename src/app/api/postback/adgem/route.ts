@@ -115,7 +115,8 @@ async function handlePostback(request: Request) {
     console.log('[AdGem postback]', JSON.stringify(sanitized));
 
     const userIdRaw = extractString(payload, ['user_id', 'subid', 'uid']);
-    const transactionId = extractString(payload, ['transaction_id', 'txid', 'tid']);
+    const transactionIdRaw = extractString(payload, ['transaction_id', 'txid', 'tid']);
+    const transactionId = transactionIdRaw ? String(transactionIdRaw).trim() : '';
     const rewardPoints = extractNumber(payload, ['points', 'reward', 'amount']);
     const status = extractString(payload, ['status', 'event']);
 
@@ -127,38 +128,53 @@ async function handlePostback(request: Request) {
       return okResponse();
     }
 
-    if (transactionId) {
-      const { data: existing } = await adminClient
-        .from('offerwall_events')
-        .select('id')
-        .eq('provider', 'adgem')
-        .eq('transaction_id', transactionId)
-        .maybeSingle();
-
-      if (existing) {
-        return okResponse();
-      }
-    }
-
     const rawPayload: Json = Object.keys(payload).length > 0 ? (payload as Json) : {};
 
-    const { error } = await adminClient.from('offerwall_events').insert({
+    const row = {
       provider: 'adgem',
       user_id: userId,
       transaction_id: transactionId || null,
       status: status || null,
       reward_points: rewardPoints,
       raw_payload: rawPayload,
-    });
+    };
 
-    if (error) {
-      if (error.code === '23505') {
-        return okResponse();
-      }
-      if (error.code === '42P01') {
-        console.warn('[AdGem postback] Table offerwall_events missing. Run supabase_offerwall_events.sql');
+    let inserted = false;
+    if (transactionId) {
+      const { data, error } = await adminClient
+        .from('offerwall_events')
+        .upsert(row, {
+          onConflict: 'provider,transaction_id',
+          ignoreDuplicates: true,
+        })
+        .select('id');
+
+      if (error) {
+        if (error.code === '23505') {
+          console.log('[AdGem postback] Duplicate (provider, transaction_id); skipped');
+        } else if (error.code === '42P01') {
+          console.warn('[AdGem postback] Table offerwall_events missing. Run supabase_offerwall_events.sql');
+        } else if (error.code === '42P10') {
+          console.warn('[AdGem postback] Unique index missing. Run supabase migrations.');
+        } else {
+          console.error('[AdGem postback] Upsert error:', error.message);
+        }
       } else {
-        console.error('[AdGem postback] Insert error:', error.message);
+        inserted = Array.isArray(data) ? data.length > 0 : !!data;
+        console.log(inserted ? '[AdGem postback] Inserted' : '[AdGem postback] Duplicate (provider, transaction_id); skipped');
+      }
+    } else {
+      const { data, error } = await adminClient.from('offerwall_events').insert(row).select('id');
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('[AdGem postback] Table offerwall_events missing. Run supabase_offerwall_events.sql');
+        } else {
+          console.error('[AdGem postback] Insert error:', error.message);
+        }
+      } else {
+        inserted = Array.isArray(data) ? data.length > 0 : !!data;
+        console.log(inserted ? '[AdGem postback] Inserted (no transaction_id; no idempotency)' : '[AdGem postback] Insert failed');
       }
     }
 
