@@ -39,12 +39,14 @@ function prefersDark(): boolean {
 }
 
 function applyTheme(mode: ThemeMode) {
+  if (typeof document === 'undefined') return;
   const dark = mode === 'dark' || (mode === 'system' && prefersDark());
   document.documentElement.classList.remove('light', 'dark');
   document.documentElement.classList.add(dark ? 'dark' : 'light');
 }
 
 function applyAccent(accent: AccentColor) {
+  if (typeof document === 'undefined') return;
   document.documentElement.setAttribute('data-accent', accent);
 }
 
@@ -96,11 +98,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyAccent(a);
   }, []);
 
-  if (!mounted) {
-    applyTheme(getStoredTheme());
-    applyAccent(getStoredAccent());
-  }
-
+  // Never touch DOM during render (SSR safety). Theme applied only in useEffect.
   return (
     <ThemeContext.Provider value={{ theme, accent, setTheme, setAccent }}>
       {children}

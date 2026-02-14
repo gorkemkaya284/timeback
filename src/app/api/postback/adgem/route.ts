@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { creditOfferwallEvent } from '@/lib/offerwall/credit-engine';
-import type { Json } from '@/types/database.types';
+import type { Database, Json } from '@/types/database.types';
+
+type OfferwallInsert = Database['public']['Tables']['offerwall_events']['Insert'];
 
 const SECRET_KEYS = ['sig', 'signature', 'secret', 'key', 'password', 'token'];
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -38,19 +40,6 @@ function extractNumber(payload: Record<string, unknown>, keys: string[]): number
     }
   }
   return null;
-}
-
-function extractPayoutTl(payload: Record<string, unknown>): number | null {
-  for (const k of ['payout_tl', 'payout', 'amount_tl', 'amount']) {
-    const v = payload[k];
-    if (typeof v === 'number' && !isNaN(v) && v > 0) return v;
-    if (typeof v === 'string') {
-      const n = parseFloat(v);
-      if (!isNaN(n) && n > 0) return n;
-    }
-  }
-  const pts = extractNumber(payload, ['points', 'reward', 'amount']);
-  return pts != null ? pts * 0.01 : null;
 }
 
 function parsePayload(request: Request): Promise<Record<string, unknown>> {
@@ -133,7 +122,6 @@ async function handlePostback(request: Request) {
     const transactionId = transactionIdRaw ? String(transactionIdRaw).trim() : '';
     const rewardPoints = extractNumber(payload, ['points', 'reward', 'amount']);
     const status = extractString(payload, ['status', 'event']);
-    const payoutTl = extractPayoutTl(payload);
 
     const userId = userIdRaw && UUID_REGEX.test(userIdRaw) ? userIdRaw : null;
 
@@ -145,13 +133,13 @@ async function handlePostback(request: Request) {
 
     const rawPayload: Json = Object.keys(payload).length > 0 ? (payload as Json) : {};
 
-    const row = {
+    // payout_tl omitted until migration 20250218000000_add_payout_tl runs
+    const row: OfferwallInsert = {
       provider: 'adgem',
       user_id: userId,
       transaction_id: transactionId || null,
       status: status || null,
       reward_points: rewardPoints,
-      payout_tl: payoutTl,
       raw_payload: rawPayload,
     };
 

@@ -23,9 +23,10 @@ export const metadata: Metadata = {
   },
 };
 
-// Inline script runs before paint to prevent theme flash (reads localStorage)
+// Inline script runs before paint to prevent theme flash. Guarded for SSR safety.
 const themeScript = `
 (function(){
+  if (typeof document==='undefined'||typeof window==='undefined') return;
   var t=localStorage.getItem('timeback-theme')||'system';
   var a=localStorage.getItem('timeback-accent')||'blue';
   var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);
