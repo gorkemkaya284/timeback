@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const [
     { data: todayRows },
     { data: pendingRedemptions },
-    { data: userRedemptions },
+    { data: userRedemptions, error: userRedemptionsError },
   ] = await Promise.all([
     supabase
       .from('points_ledger')
@@ -42,16 +42,16 @@ export default async function DashboardPage() {
       .eq('status', 'pending'),
     supabase
       .from('redemptions')
-      .select('id, status, points_spent, created_at, updated_at')
+      .select('id, status, points_spent, created_at')
       .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50),
   ]);
 
   const earnToday = (todayRows ?? []).filter((r) => r.delta > 0).reduce((s, r) => s + r.delta, 0);
   const pendingEarnings = (pendingRedemptions ?? []).reduce((s, r) => s + r.points_spent, 0);
 
-  const reds = (userRedemptions ?? []) as { id: string | number; status: string; points_spent: number; created_at: string }[];
+  const reds = userRedemptionsError ? [] : (userRedemptions ?? []);
   const lastRedemptionStatus = reds[0]?.status ?? null;
 
   const redemptionsById: Record<string, { id: string; status: string; points_spent: number; created_at: string }> = {};
@@ -65,18 +65,20 @@ export default async function DashboardPage() {
   });
   const missingIds = redemptionIds.filter((id) => !redemptionsById[id]);
   if (missingIds.length > 0) {
-    const { data: extra } = await supabase
+    const { data: extra, error: extraError } = await supabase
       .from('redemptions')
       .select('id, status, points_spent, created_at')
       .in('id', missingIds);
-    (extra ?? []).forEach((r: { id: string | number; status: string; points_spent: number; created_at: string }) => {
-      redemptionsById[String(r.id)] = {
-        id: String(r.id),
-        status: r.status,
-        points_spent: r.points_spent,
-        created_at: r.created_at,
-      };
-    });
+    if (!extraError && extra) {
+      extra.forEach((r) => {
+        redemptionsById[String(r.id)] = {
+          id: String(r.id),
+          status: r.status,
+          points_spent: r.points_spent,
+          created_at: r.created_at,
+        };
+      });
+    }
   }
 
   return (

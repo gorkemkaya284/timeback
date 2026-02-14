@@ -26,11 +26,10 @@ export default async function HistoryPage() {
       status,
       points_spent,
       created_at,
-      updated_at,
       rewards (title)
     `)
     .eq('user_id', user.id)
-    .order('updated_at', { ascending: false });
+    .order('created_at', { ascending: false });
 
   const redemptionsWithTitle = (redemptions ?? []).map((r) => {
     const reward = (r as { rewards?: { title?: string } | null }).rewards;
