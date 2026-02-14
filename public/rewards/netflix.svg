@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" fill="none">
+  <rect width="400" height="225" rx="16" fill="url(#nf)"/>
+  <defs>
+    <linearGradient id="nf" x1="0" y1="0" x2="400" y2="225" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E50914"/>
+      <stop offset="0.5" stop-color="#B20710"/>
+      <stop offset="1" stop-color="#831010"/>
+    </linearGradient>
+  </defs>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="24" font-weight="600">Netflix</text>
+</svg>

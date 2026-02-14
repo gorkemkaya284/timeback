@@ -21,6 +21,7 @@ export type BrandConfig = {
   icon: LucideIcon;
   gradient: string;
   badge: string | null;
+  imagePath: string;
 };
 
 const brands: Record<BrandKey, BrandConfig> = {
@@ -29,48 +30,54 @@ const brands: Record<BrandKey, BrandConfig> = {
     displayName: 'Google Play',
     subtitle: 'Hediye Kartı',
     icon: Play,
-    gradient: 'from-emerald-500/20 via-green-500/10 to-teal-500/15',
+    gradient: 'from-emerald-600/90 via-green-600/80 to-teal-700/90',
     badge: 'POPÜLER',
+    imagePath: '/rewards/google-play.svg',
   },
   app_store: {
     key: 'app_store',
     displayName: 'App Store',
     subtitle: '& iTunes',
     icon: Apple,
-    gradient: 'from-gray-400/20 via-gray-300/10 to-gray-500/15',
+    gradient: 'from-gray-500/90 via-gray-400/80 to-gray-600/90',
     badge: 'EN ÇOK SEÇİLEN',
+    imagePath: '/rewards/app-store.svg',
   },
   steam: {
     key: 'steam',
     displayName: 'Steam',
     subtitle: 'Wallet',
     icon: Gamepad2,
-    gradient: 'from-slate-600/25 via-slate-500/15 to-slate-700/20',
+    gradient: 'from-slate-700/90 via-slate-600/80 to-slate-800/90',
     badge: null,
+    imagePath: '/rewards/steam.svg',
   },
   netflix: {
     key: 'netflix',
     displayName: 'Netflix',
     subtitle: 'Abonelik',
     icon: Tv,
-    gradient: 'from-red-600/25 via-red-500/15 to-red-700/20',
+    gradient: 'from-red-700/90 via-red-600/80 to-red-800/90',
     badge: 'POPÜLER',
+    imagePath: '/rewards/netflix.svg',
   },
   spotify: {
     key: 'spotify',
     displayName: 'Spotify',
     subtitle: 'Premium',
     icon: Music,
-    gradient: 'from-green-500/25 via-emerald-600/15 to-green-700/20',
+    gradient: 'from-green-600/90 via-emerald-700/80 to-green-800/90',
     badge: null,
+    imagePath: '/rewards/spotify.svg',
   },
   bank_transfer: {
     key: 'bank_transfer',
     displayName: 'Banka Havalesi',
     subtitle: 'Anında transfer',
     icon: Banknote,
-    gradient: 'from-blue-600/20 via-indigo-500/10 to-blue-700/15',
+    gradient: 'from-blue-700/90 via-indigo-600/80 to-blue-800/90',
     badge: 'MIN 300 TL',
+    imagePath: '/rewards/bank-transfer.svg',
   },
 };
 

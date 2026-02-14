@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import RewardCardFull from './RewardCardFull';
+import RewardsToast from './RewardsToast';
 
 export type RewardV2 = {
   id: string;
@@ -44,6 +45,7 @@ export default function RewardsListV2({
   redeemEnabled?: boolean;
 }) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
 
@@ -107,6 +109,14 @@ export default function RewardsListV2({
         </div>
       )}
 
+      {errorToast && (
+        <RewardsToast
+          message={errorToast}
+          type="error"
+          onDismiss={() => setErrorToast(null)}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="search"
@@ -146,12 +156,12 @@ export default function RewardsListV2({
               key={reward.id}
               reward={reward}
               variants={vs}
-              userPoints={userPoints}
               withdrawable={withdrawable}
               minPoints={minPoints}
               redeemEnabled={redeemEnabled}
               onSuccess={() => setSuccessToast('Talebin alındı (beklemede)')}
-              onError={() => setSuccessToast(null)}
+              onError={(msg) => setErrorToast(msg)}
+              onInsufficientBalance={(msg) => setErrorToast(msg)}
             />
           ))}
         </div>

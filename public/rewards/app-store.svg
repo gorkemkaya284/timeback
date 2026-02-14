@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" fill="none">
+  <rect width="400" height="225" rx="16" fill="url(#as)"/>
+  <defs>
+    <linearGradient id="as" x1="0" y1="0" x2="400" y2="225" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#555"/>
+      <stop offset="0.5" stop-color="#888"/>
+      <stop offset="1" stop-color="#333"/>
+    </linearGradient>
+  </defs>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="24" font-weight="600">App Store</text>
+</svg>
