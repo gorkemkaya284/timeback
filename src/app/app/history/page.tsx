@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import HistoryActivityList from '@/components/history/HistoryActivityList';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HistoryPage() {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -24,9 +26,11 @@ export default async function HistoryPage() {
       status,
       points_spent,
       created_at,
+      updated_at,
       rewards (title)
     `)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false });
 
   const redemptionsWithTitle = (redemptions ?? []).map((r) => {
     const reward = (r as { rewards?: { title?: string } | null }).rewards;

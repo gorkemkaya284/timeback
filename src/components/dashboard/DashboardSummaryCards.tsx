@@ -1,11 +1,11 @@
 import { formatPoints, formatTry, pointsToTry } from '@/lib/currency';
-import { REDEMPTION_STATUS, getRedemptionStatusStyle } from '@/lib/status';
+import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
 
 type Props = {
   balance: number;
   todayEarned: number;
   pendingEarnings: number;
-  lastRedemptionStatus: 'pending' | 'fulfilled' | 'rejected' | null;
+  lastRedemptionStatus: string | null;
 };
 
 export default function DashboardSummaryCards({
@@ -51,9 +51,9 @@ export default function DashboardSummaryCards({
         </p>
         {lastRedemptionStatus ? (
           <span
-            className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(REDEMPTION_STATUS[lastRedemptionStatus].label)}`}
+            className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${getRedemptionStatusStyle(getRedemptionStatusLabel(lastRedemptionStatus))}`}
           >
-            {REDEMPTION_STATUS[lastRedemptionStatus].label}
+            {getRedemptionStatusLabel(lastRedemptionStatus)}
           </span>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">—</p>

@@ -4,7 +4,7 @@
  */
 export type RedemptionStatusDb = 'pending' | 'fulfilled' | 'rejected';
 
-export type RedemptionStatusLabel = 'Beklemede' | 'Tamamlandı' | 'Reddedildi';
+export type RedemptionStatusLabel = 'Beklemede' | 'Tamamlandı' | 'Reddedildi' | 'İptal';
 
 export const REDEMPTION_STATUS: Record<
   RedemptionStatusDb,
@@ -19,19 +19,30 @@ const STATUS_STYLES: Record<RedemptionStatusLabel, string> = {
   Beklemede: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
   Tamamlandı: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
   Reddedildi: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
+  İptal: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
 };
 
-/** DB status -> UI label */
+/** DB status -> UI label. approved/paid => Tamamlandı (fulfilled alias) */
 export function getRedemptionStatusLabel(status: string): RedemptionStatusLabel {
   const s = (status || '').toLowerCase();
-  if (s === 'fulfilled') return 'Tamamlandı';
+  if (s === 'fulfilled' || s === 'approved' || s === 'paid') return 'Tamamlandı';
   if (s === 'rejected') return 'Reddedildi';
+  if (s === 'cancelled') return 'İptal';
   return 'Beklemede';
 }
 
 /** UI label için badge class */
 export function getRedemptionStatusStyle(label: RedemptionStatusLabel): string {
   return STATUS_STYLES[label] ?? STATUS_STYLES.Beklemede;
+}
+
+/** DB status -> badge variant (getRedemptionStatusStyle kullan, bu opsiyonel) */
+export function getRedemptionBadgeVariant(status: string): 'warn' | 'success' | 'danger' | 'muted' {
+  const s = (status || '').toLowerCase();
+  if (s === 'fulfilled' || s === 'approved' || s === 'paid') return 'success';
+  if (s === 'rejected') return 'danger';
+  if (s === 'cancelled') return 'muted';
+  return 'warn';
 }
 
 /** Ödül (reward) kullanılabilirlik durumları */

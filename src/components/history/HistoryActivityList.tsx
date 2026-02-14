@@ -7,7 +7,7 @@ import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status
 
 type Filter = 'all' | 'earnings' | 'withdrawals' | 'pending';
 
-type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
+type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi' | 'İptal';
 
 type ActivityItem = {
   id: string;

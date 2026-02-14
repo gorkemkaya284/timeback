@@ -5,6 +5,8 @@ import Link from 'next/link';
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import DashboardActivityList from '@/components/dashboard/DashboardActivityList';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -19,10 +21,14 @@ export default async function DashboardPage() {
   todayStart.setHours(0, 0, 0, 0);
   const isoToday = todayStart.toISOString();
 
+  const redemptionIds = (recentEntries ?? [])
+    .filter((e) => e.ref_type === 'redemption' && e.ref_id)
+    .map((e) => e.ref_id!);
+
   const [
     { data: todayRows },
     { data: pendingRedemptions },
-    { data: lastRedemption },
+    { data: userRedemptions },
   ] = await Promise.all([
     supabase
       .from('points_ledger')
@@ -36,28 +42,40 @@ export default async function DashboardPage() {
       .eq('status', 'pending'),
     supabase
       .from('redemptions')
-      .select('status')
+      .select('id, status, points_spent, created_at, updated_at')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order('updated_at', { ascending: false })
+      .limit(50),
   ]);
 
   const earnToday = (todayRows ?? []).filter((r) => r.delta > 0).reduce((s, r) => s + r.delta, 0);
   const pendingEarnings = (pendingRedemptions ?? []).reduce((s, r) => s + r.points_spent, 0);
-  const lastRedemptionStatus = lastRedemption?.status as 'pending' | 'fulfilled' | 'rejected' | null;
+
+  const reds = (userRedemptions ?? []) as { id: string | number; status: string; points_spent: number; created_at: string }[];
+  const lastRedemptionStatus = reds[0]?.status ?? null;
 
   const redemptionsById: Record<string, { id: string; status: string; points_spent: number; created_at: string }> = {};
-  const redemptionIds = (recentEntries ?? [])
-    .filter((e) => e.ref_type === 'redemption' && e.ref_id)
-    .map((e) => e.ref_id!);
-  if (redemptionIds.length > 0) {
-    const { data: reds } = await supabase
+  reds.forEach((r) => {
+    redemptionsById[String(r.id)] = {
+      id: String(r.id),
+      status: r.status,
+      points_spent: r.points_spent,
+      created_at: r.created_at,
+    };
+  });
+  const missingIds = redemptionIds.filter((id) => !redemptionsById[id]);
+  if (missingIds.length > 0) {
+    const { data: extra } = await supabase
       .from('redemptions')
       .select('id, status, points_spent, created_at')
-      .in('id', redemptionIds);
-    (reds ?? []).forEach((r: { id: string | number; status: string; points_spent: number; created_at: string }) => {
-      redemptionsById[String(r.id)] = { id: String(r.id), status: r.status, points_spent: r.points_spent, created_at: r.created_at };
+      .in('id', missingIds);
+    (extra ?? []).forEach((r: { id: string | number; status: string; points_spent: number; created_at: string }) => {
+      redemptionsById[String(r.id)] = {
+        id: String(r.id),
+        status: r.status,
+        points_spent: r.points_spent,
+        created_at: r.created_at,
+      };
     });
   }
 

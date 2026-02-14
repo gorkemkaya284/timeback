@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
 import { getRedemptionStatusLabel, getRedemptionStatusStyle } from '@/lib/status';
 
-type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi';
+type RedemptionStatusLabel = 'Tamamlandı' | 'Beklemede' | 'Reddedildi' | 'İptal';
 
 type ActivityItem = {
   id: string;
