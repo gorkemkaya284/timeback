@@ -206,27 +206,33 @@ export interface Database {
       };
       offerwall_events: {
         Row: {
-          id: number;
+          id: string;
           provider: string;
           user_id: string | null;
           transaction_id: string | null;
-          raw_payload: Json | null;
+          status: string | null;
+          reward_points: number | null;
+          raw_payload: Json;
           created_at: string;
         };
         Insert: {
-          id?: number;
+          id?: string;
           provider: string;
           user_id?: string | null;
           transaction_id?: string | null;
-          raw_payload?: Json | null;
+          status?: string | null;
+          reward_points?: number | null;
+          raw_payload: Json;
           created_at?: string;
         };
         Update: {
-          id?: number;
+          id?: string;
           provider?: string;
           user_id?: string | null;
           transaction_id?: string | null;
-          raw_payload?: Json | null;
+          status?: string | null;
+          reward_points?: number | null;
+          raw_payload?: Json;
           created_at?: string;
         };
         Relationships: [];
