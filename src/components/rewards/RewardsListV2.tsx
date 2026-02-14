@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import RewardCardV2 from './RewardCardV2';
+import { useState, useMemo } from 'react';
+import RewardCardFull from './RewardCardFull';
 
 export type RewardV2 = {
   id: string;
@@ -26,6 +26,8 @@ export type RewardVariantV2 = {
   created_at: string;
 };
 
+type FilterTab = 'all' | 'gift' | 'bank_transfer';
+
 export default function RewardsListV2({
   rewards,
   variants,
@@ -42,23 +44,51 @@ export default function RewardsListV2({
   redeemEnabled?: boolean;
 }) {
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterTab>('all');
 
-  const variantsByReward = variants.reduce<Record<string, RewardVariantV2[]>>((acc, v) => {
-    const rid = v.reward_id;
-    if (!acc[rid]) acc[rid] = [];
-    acc[rid].push(v);
-    return acc;
-  }, {});
+  const variantsByReward = useMemo(
+    () =>
+      variants.reduce<Record<string, RewardVariantV2[]>>((acc, v) => {
+        const rid = v.reward_id;
+        if (!acc[rid]) acc[rid] = [];
+        acc[rid].push(v);
+        return acc;
+      }, {}),
+    [variants]
+  );
 
-  const items = rewards
-    .map((r) => ({
-      reward: r,
-      variants: variantsByReward[r.id] ?? [],
-    }))
-    .filter((x) => x.variants.length > 0);
+  const items = useMemo(() => {
+    let list = rewards
+      .map((r) => ({
+        reward: r,
+        variants: variantsByReward[r.id] ?? [],
+      }))
+      .filter((x) => x.variants.length > 0);
+
+    if (filter === 'gift') list = list.filter((x) => x.reward.kind === 'gift');
+    else if (filter === 'bank_transfer') list = list.filter((x) => x.reward.kind === 'bank_transfer');
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (x) =>
+          x.reward.title.toLowerCase().includes(q) ||
+          x.variants.some((v) => String(v.denomination_tl).includes(q))
+      );
+    }
+
+    return list;
+  }, [rewards, variantsByReward, filter, search]);
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+          1.000 P = 10 TL
+        </span>
+      </div>
+
       {!redeemEnabled && (
         <div
           role="status"
@@ -77,38 +107,52 @@ export default function RewardsListV2({
         </div>
       )}
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="search"
+          placeholder="Google, Steam..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
+        />
+        <div className="flex gap-1">
+          {(['all', 'gift', 'bank_transfer'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setFilter(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filter === tab
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {tab === 'all' ? 'Tümü' : tab === 'gift' ? 'Dijital' : 'Havale'}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {items.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Henüz çekim seçeneği yok. Bakiye biriktir, yakında açılır.
+            {search || filter !== 'all' ? 'Bu kriterlere uygun ödül bulunamadı.' : 'Henüz çekim seçeneği yok. Bakiye biriktir, yakında açılır.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(({ reward, variants: vs }) => (
-            <div
+            <RewardCardFull
               key={reward.id}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm"
-            >
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
-                {reward.title}
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {vs.map((variant) => (
-                  <RewardCardV2
-                    key={variant.id}
-                    reward={reward}
-                    variant={variant}
-                    userPoints={userPoints}
-                    withdrawable={withdrawable}
-                    minPoints={minPoints}
-                    redeemEnabled={redeemEnabled}
-                    onSuccess={() => setSuccessToast('Talebin alındı (beklemede)')}
-                    onError={(msg) => setSuccessToast(null)}
-                  />
-                ))}
-              </div>
-            </div>
+              reward={reward}
+              variants={vs}
+              userPoints={userPoints}
+              withdrawable={withdrawable}
+              minPoints={minPoints}
+              redeemEnabled={redeemEnabled}
+              onSuccess={() => setSuccessToast('Talebin alındı (beklemede)')}
+              onError={() => setSuccessToast(null)}
+            />
           ))}
         </div>
       )}

@@ -53,7 +53,7 @@ export default async function RewardsPage() {
 
   return (
     <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         <Suspense fallback={null}>
           <RewardsFeedbackBanner />
         </Suspense>
