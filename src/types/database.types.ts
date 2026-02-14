@@ -204,6 +204,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      offerwall_events: {
+        Row: {
+          id: number;
+          provider: string;
+          user_id: string | null;
+          transaction_id: string | null;
+          raw_payload: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          provider: string;
+          user_id?: string | null;
+          transaction_id?: string | null;
+          raw_payload?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          provider?: string;
+          user_id?: string | null;
+          transaction_id?: string | null;
+          raw_payload?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       offer_conversions: {
         Row: {
           id: string;

@@ -27,6 +27,9 @@ Fill in your Supabase credentials:
 - `SUPABASE_SERVICE_ROLE_KEY` (for admin operations)
 - `ADMIN_EMAILS` (comma-separated list of admin emails)
 
+Optional:
+- `ADGEM_POSTBACK_SECRET` – if set, AdGem postback requires matching `sig` or `signature` param
+
 3. Run the database migrations:
    - Copy the SQL from `supabase/schema.sql`
    - Run it in your Supabase SQL editor
