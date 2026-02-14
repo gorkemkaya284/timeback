@@ -42,7 +42,7 @@ export default function FeaturedOffersCarousel() {
   return (
     <section>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+        <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
           Öne çıkan görevler
         </h2>
         <div className="hidden sm:flex gap-1">
@@ -71,14 +71,14 @@ export default function FeaturedOffersCarousel() {
       <div
         ref={scrollRef}
         onScroll={checkScroll}
-        className="flex gap-2 overflow-x-auto scroll-smooth pb-2 -mx-1 px-1 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600"
-        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        className="flex flex-col md:flex-row md:overflow-x-auto scroll-smooth gap-4 md:gap-2 md:pb-2 -mx-1 px-1 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
       >
         {OFFERS.map((o) => (
           <div
             key={o.id}
-            className="flex-shrink-0 w-[260px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm"
-            style={{ scrollSnapAlign: 'start' }}
+            className="flex-shrink-0 w-full md:w-[260px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm"
+            style={{ scrollSnapAlign: 'start' } as React.CSSProperties}
           >
             <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2">
               {o.title}

@@ -32,17 +32,17 @@ export default async function EarnPage() {
       : null;
 
   return (
-    <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-full -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 sm:py-6 bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
         {/* Copy */}
-        <section className="pt-2">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <section className="pt-0 sm:pt-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Kazanmaya başla
           </h1>
-          <p className="mt-2 text-base text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="mt-3 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
             Görevleri tamamla, puan kazan. Kazancını anında ödüle çevir.
           </p>
-          <div className="mt-4 flex flex-wrap gap-6">
+          <div className="mt-4 sm:mt-4 flex flex-wrap gap-4 sm:gap-6">
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400">
               <span className="text-green-500">●</span> Anında yansıma
             </span>
@@ -69,8 +69,8 @@ export default async function EarnPage() {
         <OfferwallsGrid iframeSrc={iframeSrc} />
 
         {/* Nasıl çalışır */}
-        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-5 shadow-sm">
+          <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-3">
             Nasıl çalışır
           </h2>
           <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">

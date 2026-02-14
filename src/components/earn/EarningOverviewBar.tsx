@@ -12,7 +12,7 @@ export default function EarningOverviewBar({ balance, todayEarned, pending }: Pr
   const usdApprox = (balance / POINTS_TO_USD).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
 
   return (
-    <div className="flex flex-wrap items-center gap-4 sm:gap-6 py-4 px-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+    <div className="flex flex-wrap items-center gap-3 sm:gap-6 py-4 px-4 sm:px-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
       <div className="flex items-baseline gap-2">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           Bakiye

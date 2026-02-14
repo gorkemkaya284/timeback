@@ -37,10 +37,10 @@ export default function OfferwallsGrid({ iframeSrc }: { iframeSrc: string | null
 
   return (
     <section>
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
+      <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-3">
         Tüm görev sağlayıcılar
       </h2>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-3">
         {/* AdGate prominent */}
         <div className="lg:col-span-2 rounded-xl border-2 border-green-200 dark:border-green-800/50 bg-white dark:bg-gray-800 overflow-hidden shadow-sm ring-1 ring-green-100 dark:ring-green-900/30">
           <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
