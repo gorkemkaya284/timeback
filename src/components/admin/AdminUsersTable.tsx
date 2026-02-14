@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { formatPoints } from '@/lib/utils';
 
 interface AdminUser {
@@ -116,8 +117,14 @@ export default function AdminUsersTable() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {users.map((u) => (
               <tr key={u.user_id}>
-                <td className="px-4 py-2 text-sm font-mono text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{u.user_id}</td>
-                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{u.email}</td>
+                <td className="px-4 py-2 text-sm font-mono text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
+                  <Link href={`/app/admin/users/${u.user_id}`} className="hover:text-accent hover:underline truncate block" title={u.user_id}>
+                    {u.user_id}
+                  </Link>
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                  <Link href={`/app/admin/users/${u.user_id}`} className="hover:text-accent hover:underline">{u.email}</Link>
+                </td>
                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                   <span className="mr-1">{u.risk_score}</span>
                   <button type="button" onClick={() => setRisk(u.user_id, -10)} className="text-gray-400 hover:text-accent">−</button>

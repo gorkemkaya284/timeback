@@ -42,11 +42,11 @@ export default function AuthLoginForm() {
     }
 
     try {
-      await fetch('/api/auth/log-activity', {
+      await fetch('/api/ip/log-login', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'login' }),
+        body: JSON.stringify({}),
       });
     } catch {
       // Non-blocking

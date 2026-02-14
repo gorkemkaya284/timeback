@@ -83,30 +83,30 @@ export interface Database {
       };
       user_ip_logs: {
         Row: {
-          id: number;
-          user_id: string;
-          event: string;
-          ip: string | null;
+          id: string;
+          user_id: string | null;
+          ip: string;
           user_agent: string | null;
           path: string | null;
+          event: string;
           created_at: string;
         };
         Insert: {
-          id?: number;
-          user_id: string;
-          event: string;
-          ip?: string | null;
+          id?: string;
+          user_id?: string | null;
+          ip: string;
           user_agent?: string | null;
           path?: string | null;
+          event: string;
           created_at?: string;
         };
         Update: {
-          id?: number;
-          user_id?: string;
-          event?: string;
-          ip?: string | null;
+          id?: string;
+          user_id?: string | null;
+          ip?: string;
           user_agent?: string | null;
           path?: string | null;
+          event?: string;
           created_at?: string;
         };
         Relationships: [];
