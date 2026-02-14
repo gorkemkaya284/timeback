@@ -64,11 +64,17 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'skipped', 'points_le_zero', 'user_tl', v_user_tl);
   END IF;
 
-  -- 7) Insert ledger credit (idempotent by ref_id)
+  -- 7) Insert ledger credit (idempotent: unique on ref_type, ref_id)
+  -- ref_type = source (provider), ref_id = source_event_id (offerwall_events.id)
   v_reason := 'Offerwall: ' || v_event.provider || ' (event ' || p_event_id::TEXT || ')';
 
-  INSERT INTO public.points_ledger (user_id, delta, reason, ref_type, ref_id)
-  VALUES (v_event.user_id, v_user_points, v_reason, v_event.provider, p_event_id);
+  BEGIN
+    INSERT INTO public.points_ledger (user_id, delta, reason, ref_type, ref_id)
+    VALUES (v_event.user_id, v_user_points, v_reason, v_event.provider, p_event_id::TEXT);
+  EXCEPTION
+    WHEN unique_violation THEN
+      RETURN jsonb_build_object('success', true, 'skipped', 'already_credited');
+  END;
 
   -- 8) Mark credited
   UPDATE public.offerwall_events

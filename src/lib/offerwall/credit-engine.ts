@@ -20,8 +20,9 @@ export function calculateOfferwallUserPoints(payoutTl: number): number {
 }
 
 /**
- * Credit an offerwall event to the user's ledger.
- * - Idempotent: never credits twice (credited_at guard).
+ * Credit an offerwall event to points_ledger via RPC.
+ * - Uses points_ledger: user_id, delta (points), reason, ref_type (source/provider), ref_id (source_event_id).
+ * - Idempotent: credited_at guard + unique (ref_type, ref_id); unique violation = already credited.
  * - Only credits if status is approved/completed/success.
  * - Feature flag: OFFERWALL_CREDIT_ENABLED (default false).
  * - Test allowlist: OFFERWALL_TEST_ALLOWLIST when disabled.

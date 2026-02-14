@@ -119,6 +119,9 @@ export async function POST(request: Request) {
     });
 
     if (ledgerError) {
+      if (ledgerError.code === '23505') {
+        return NextResponse.json({ success: true, message: 'Already credited' });
+      }
       return NextResponse.json(
         { error: 'Failed to credit points', details: ledgerError.message },
         { status: 500 }

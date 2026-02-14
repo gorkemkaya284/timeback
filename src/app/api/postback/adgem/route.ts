@@ -144,6 +144,7 @@ async function handlePostback(request: Request) {
     };
 
     let eventId: string | null = null;
+    let duplicate = false;
     if (transactionId) {
       const { data, error } = await adminClient
         .from('offerwall_events')
@@ -151,19 +152,11 @@ async function handlePostback(request: Request) {
           onConflict: 'provider,transaction_id',
           ignoreDuplicates: true,
         })
-        .select('id')
-        .single();
+        .select('id');
 
       if (error) {
         if (error.code === '23505') {
-          const { data: existing } = await adminClient
-            .from('offerwall_events')
-            .select('id')
-            .eq('provider', 'adgem')
-            .eq('transaction_id', transactionId)
-            .maybeSingle();
-          eventId = existing?.id ?? null;
-          console.log('[AdGem postback] Duplicate (provider, transaction_id); skipped insert');
+          duplicate = true;
         } else if (error.code === '42P01') {
           console.warn('[AdGem postback] Table offerwall_events missing. Run supabase_offerwall_events.sql');
         } else if (error.code === '42P10') {
@@ -172,24 +165,27 @@ async function handlePostback(request: Request) {
           console.error('[AdGem postback] Upsert error:', error.message);
         }
       } else {
-        const insertedId =
-          Array.isArray(data)
-            ? (data[0] as { id?: string } | undefined)?.id
-            : (data as { id?: string } | undefined)?.id;
-        eventId = insertedId ?? null;
+        const rows = Array.isArray(data) ? data : data ? [data] : [];
+        eventId = (rows[0] as { id?: string } | undefined)?.id ?? null;
         if (!eventId) {
-          const { data: existing } = await adminClient
-            .from('offerwall_events')
-            .select('id')
-            .eq('provider', 'adgem')
-            .eq('transaction_id', transactionId)
-            .maybeSingle();
-          eventId = existing?.id ?? null;
+          duplicate = true;
         }
-        console.log(eventId ? '[AdGem postback] Inserted' : '[AdGem postback] Duplicate (provider, transaction_id); skipped');
+      }
+      if (!eventId) {
+        const { data: existingRows } = await adminClient
+          .from('offerwall_events')
+          .select('id')
+          .eq('provider', 'adgem')
+          .eq('transaction_id', transactionId)
+          .limit(1);
+        const arr = Array.isArray(existingRows) ? existingRows : existingRows ? [existingRows] : [];
+        eventId = (arr[0] as { id?: string } | undefined)?.id ?? null;
       }
     } else {
-      const { data, error } = await adminClient.from('offerwall_events').insert(row).select('id').single();
+      const { data, error } = await adminClient
+        .from('offerwall_events')
+        .insert(row)
+        .select('id');
 
       if (error) {
         if (error.code === '42P01') {
@@ -198,12 +194,13 @@ async function handlePostback(request: Request) {
           console.error('[AdGem postback] Insert error:', error.message);
         }
       } else {
-        eventId = data?.id ?? null;
-        console.log(eventId ? '[AdGem postback] Inserted (no transaction_id; no idempotency)' : '[AdGem postback] Insert failed');
+        const rows = Array.isArray(data) ? data : data ? [data] : [];
+        eventId = (rows[0] as { id?: string } | undefined)?.id ?? null;
       }
     }
 
     if (eventId) {
+      console.log(`[AdGem postback] stored eventId=${eventId} duplicate=${duplicate}`);
       try {
         await creditOfferwallEvent(eventId);
       } catch (creditErr) {
