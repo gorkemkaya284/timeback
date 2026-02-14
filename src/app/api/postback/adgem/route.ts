@@ -42,6 +42,17 @@ function extractNumber(payload: Record<string, unknown>, keys: string[]): number
   return null;
 }
 
+function extractPayoutTl(payload: Record<string, unknown>): number | null {
+  const keys = ['payout_tl', 'payoutTL', 'payout', 'revenue', 'amount', 'reward_tl'];
+  for (const k of keys) {
+    const v = payload[k];
+    if (v === null || v === undefined) continue;
+    const parsed = Number(String(v).replace(',', '.'));
+    if (!isNaN(parsed)) return parsed;
+  }
+  return null;
+}
+
 function parsePayload(request: Request): Promise<Record<string, unknown>> {
   const url = new URL(request.url);
   if (request.method === 'GET') {
@@ -122,8 +133,11 @@ async function handlePostback(request: Request) {
     const transactionId = transactionIdRaw ? String(transactionIdRaw).trim() : '';
     const rewardPoints = extractNumber(payload, ['points', 'reward', 'amount']);
     const status = extractString(payload, ['status', 'event']);
+    const payoutTl = extractPayoutTl(payload);
 
     const userId = userIdRaw && UUID_REGEX.test(userIdRaw) ? userIdRaw : null;
+
+    console.log('[AdGem postback] payout_tl=', payoutTl);
 
     const adminClient = getAdminClient();
     if (!adminClient) {
@@ -133,13 +147,13 @@ async function handlePostback(request: Request) {
 
     const rawPayload: Json = Object.keys(payload).length > 0 ? (payload as Json) : {};
 
-    // payout_tl omitted until migration 20250218000000_add_payout_tl runs
     const row: OfferwallInsert = {
       provider: 'adgem',
       user_id: userId,
       transaction_id: transactionId || null,
       status: status || null,
       reward_points: rewardPoints,
+      payout_tl: payoutTl,
       raw_payload: rawPayload,
     };
 
