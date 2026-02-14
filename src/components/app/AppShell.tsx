@@ -6,20 +6,23 @@ import TopBar from './TopBar';
 import MobileDrawer from './MobileDrawer';
 import AppFooter from './AppFooter';
 import PresenceHeartbeat from '@/components/presence/PresenceHeartbeat';
+import IpLogOnMount from '@/components/presence/IpLogOnMount';
 
 type Props = {
+  userId: string;
   email: string;
   isAdmin: boolean;
   balance: number;
   children: React.ReactNode;
 };
 
-export default function AppShell({ email, isAdmin, balance, children }: Props) {
+export default function AppShell({ userId, email, isAdmin, balance, children }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50 dark:bg-gray-900">
       <PresenceHeartbeat />
+      <IpLogOnMount userId={userId} />
       <aside className="flex flex-shrink-0">
         <Sidebar isAdmin={isAdmin} balance={balance} />
       </aside>

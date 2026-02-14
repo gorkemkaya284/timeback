@@ -79,9 +79,9 @@ export async function GET(request: Request) {
         // Continue anyway - profile might already exist
       }
       try {
-        await logUserIp({ req: request, userId: data.user.id, event: 'login' });
-      } catch {
-        // Non-blocking
+        await logUserIp({ req: request, userId: data.user.id, event: 'login', pathOverride: '/auth/callback' });
+      } catch (e) {
+        console.error('[auth/callback] IP log failed:', e);
       }
     }
 

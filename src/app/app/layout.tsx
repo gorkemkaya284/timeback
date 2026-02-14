@@ -41,6 +41,7 @@ export default async function AppLayout({
 
   return (
     <AppShell
+      userId={user.id}
       email={user.email || ''}
       isAdmin={!!isAdmin}
       balance={totalPoints}

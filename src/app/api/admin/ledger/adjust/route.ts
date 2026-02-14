@@ -11,8 +11,13 @@ import { logUserIp } from '@/lib/user-ip-log';
  * Server-side only; uses Supabase service role.
  */
 export async function POST(request: Request) {
-  const logAdminIp = (userId: string) => {
-    logUserIp({ req: request, userId, event: 'admin_ledger_adjust' }).catch(() => {});
+  const logAdminIp = (adminUserId: string) => {
+    logUserIp({
+      req: request,
+      userId: adminUserId,
+      event: 'admin_ledger_adjust',
+      pathOverride: '/api/admin/ledger/adjust',
+    }).catch((e) => console.error('[admin/ledger/adjust] IP log failed:', e));
   };
   try {
     const user = await getCurrentUser();

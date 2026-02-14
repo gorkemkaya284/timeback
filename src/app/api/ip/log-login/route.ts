@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    await logUserIp({ req: request, userId: user.id, event: 'login' });
+    await logUserIp({ req: request, userId: user.id, event: 'login', pathOverride: '/api/ip/log-login' });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[ip/log-login] Error:', err);

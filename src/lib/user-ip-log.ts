@@ -30,7 +30,10 @@ export async function logUserIp(params: {
   pathOverride?: string;
 }): Promise<void> {
   const admin = getAdminClient();
-  if (!admin) return;
+  if (!admin) {
+    console.error('IP_LOG_MISSING_SERVICE_ROLE', { userId: params.userId, event: params.event });
+    throw new Error('MISSING_SERVICE_ROLE: SUPABASE_SERVICE_ROLE_KEY not set');
+  }
 
   const ip = getClientIp(params.req);
   const userAgent = params.req.headers.get('user-agent') ?? null;
@@ -43,6 +46,8 @@ export async function logUserIp(params: {
     }
   }
 
+  console.log('IP_LOG_ATTEMPT', { userId: params.userId, event: params.event, ip, path });
+
   const { error } = await admin.from('user_ip_logs').insert({
     user_id: params.userId,
     event: params.event,
@@ -52,11 +57,13 @@ export async function logUserIp(params: {
   });
 
   if (error) {
-    console.error('[logUserIp] Insert error:', {
+    console.error('IP_LOG_INSERT_ERR', {
       code: error.code,
       message: error.message,
       details: error.details,
       hint: error.hint,
     });
+    throw error;
   }
+  console.log('IP_LOG_INSERT_OK', { userId: params.userId, event: params.event });
 }

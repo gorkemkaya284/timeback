@@ -41,16 +41,7 @@ export default function AuthLoginForm() {
       return;
     }
 
-    try {
-      await fetch('/api/ip/log-login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-    } catch {
-      // Non-blocking
-    }
+    // IP log will run when user lands on /app/* (IpLogOnMount in AppShell)
     window.location.assign('/app/dashboard');
   };
 
