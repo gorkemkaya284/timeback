@@ -36,6 +36,33 @@ export default function AdminLedgerTable({
     router.push(userId ? `/app/admin/ledger?user_id=${encodeURIComponent(userId)}` : '/app/admin/ledger');
   };
 
+  const doAdjust = async (userId: string, amount: number, isCredit: boolean) => {
+    const pointsDelta = isCredit ? amount : -amount;
+    const res = await fetch('/api/admin/ledger/adjust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        points_delta: pointsDelta,
+        reason: isCredit ? 'admin_credit' : 'admin_debit',
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setMessage(isCredit ? 'Puan eklendi.' : 'Puan düşüldü.');
+      if (isCredit) {
+        setCreditUserId('');
+        setCreditAmount('');
+      } else {
+        setDebitUserId('');
+        setDebitAmount('');
+      }
+      router.refresh();
+    } else {
+      setMessage(data.message || data.error || 'İşlem başarısız.');
+    }
+  };
+
   const doCredit = async () => {
     const u = creditUserId.trim();
     const a = parseInt(creditAmount, 10);
@@ -46,20 +73,7 @@ export default function AdminLedgerTable({
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/admin/ledger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: u, amount: a, type: 'credit' }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage('Puan eklendi.');
-        setCreditUserId('');
-        setCreditAmount('');
-        router.refresh();
-      } else {
-        setMessage(data.error || 'İşlem başarısız.');
-      }
+      await doAdjust(u, a, true);
     } catch {
       setMessage('İstek başarısız.');
     } finally {
@@ -78,20 +92,7 @@ export default function AdminLedgerTable({
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('/api/admin/ledger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: u, amount: a, type: 'debit' }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage('Puan düşüldü.');
-        setDebitUserId('');
-        setDebitAmount('');
-        router.refresh();
-      } else {
-        setMessage(data.error || 'İşlem başarısız.');
-      }
+      await doAdjust(u, a, false);
     } catch {
       setMessage('İstek başarısız.');
     } finally {

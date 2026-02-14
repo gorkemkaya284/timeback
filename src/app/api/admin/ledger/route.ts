@@ -29,8 +29,9 @@ export async function GET(request: Request) {
     const { data: entries, error } = await query;
 
     if (error) {
+      console.error('[admin/ledger] Fetch error:', { code: error.code, message: error.message, details: error.details });
       return NextResponse.json(
-        { error: 'Failed to fetch ledger' },
+        { error: 'Failed to fetch ledger', message: error.message },
         { status: 500 }
       );
     }
@@ -57,63 +58,91 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * @deprecated Use POST /api/admin/ledger/adjust instead.
+ * Legacy POST: same logic as adjust, accepts { userId, amount, type }.
+ */
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || !allowAdminAccess(user)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!user || !(await allowAdminAccess(user))) {
+      return NextResponse.json({ ok: false, code: 'unauthorized', message: 'Unauthorized' }, { status: 403 });
     }
 
     const adminClient = getAdminClient();
     if (!adminClient) {
       return NextResponse.json(
-        { error: 'Admin client disabled. Set SUPABASE_SERVICE_ROLE_KEY for admin writes.' },
+        { ok: false, code: 'admin_disabled', message: 'Admin client disabled. Set SUPABASE_SERVICE_ROLE_KEY.' },
         { status: 503 }
       );
     }
 
-    const body = await request.json();
-    const { userId, amount, type } = body;
-
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    let body: { userId?: string; amount?: number; type?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ ok: false, code: 'invalid_json', message: 'Invalid JSON' }, { status: 400 });
     }
-    const amt = typeof amount === 'number' ? amount : parseInt(String(amount), 10);
+
+    const userId = body.userId?.trim();
+    const amt = typeof body.amount === 'number' ? body.amount : parseInt(String(body.amount ?? ''), 10);
+    const type = body.type;
+
+    if (!userId) {
+      return NextResponse.json({ ok: false, code: 'user_id_required', message: 'userId required' }, { status: 400 });
+    }
     if (isNaN(amt) || amt <= 0) {
-      return NextResponse.json({ error: 'amount must be a positive number' }, { status: 400 });
+      return NextResponse.json({ ok: false, code: 'invalid_amount', message: 'amount must be positive' }, { status: 400 });
     }
     if (type !== 'credit' && type !== 'debit') {
-      return NextResponse.json({ error: 'type must be credit or debit' }, { status: 400 });
+      return NextResponse.json({ ok: false, code: 'invalid_type', message: 'type must be credit or debit' }, { status: 400 });
     }
 
     const delta = type === 'credit' ? amt : -amt;
     const reason = type === 'credit' ? 'admin_credit' : 'admin_debit';
+    const refId = `admin:${crypto.randomUUID()}`;
 
-    const { error: insertError } = await adminClient
+    const { data, error } = await adminClient
       .from('points_ledger')
-      .insert({ user_id: userId, delta, reason, ref_type: 'admin', ref_id: null });
+      .insert({ user_id: userId, delta, reason, ref_type: 'admin_adjustment', ref_id: refId })
+      .select('id')
+      .limit(1);
 
-    if (insertError) {
+    if (error) {
+      console.error('[admin/ledger] Insert error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      const userMessage =
+        error.code === '23503'
+          ? 'User not found in profiles. Create profile first.'
+          : error.code === '23505'
+            ? 'Duplicate adjustment. Retry.'
+            : error.message || 'Failed to create ledger entry';
       return NextResponse.json(
-        { error: 'Failed to create ledger entry' },
+        { ok: false, code: error.code ?? 'db_error', message: userMessage },
         { status: 500 }
       );
     }
 
-    const actor = user.email || user.id;
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    const ledgerId = (rows[0] as { id?: string })?.id ?? null;
+
     await writeAuditLog({
-      actor,
+      actor: user.email || user.id,
       action: type === 'credit' ? 'credit_points' : 'debit_points',
       target_type: 'user',
       target_id: userId,
-      payload: { amount: amt, reason },
+      payload: { amount: amt, reason, ledger_id: ledgerId },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Admin ledger POST error:', error);
+    return NextResponse.json({ ok: true, success: true, ledger_id: ledgerId });
+  } catch (err) {
+    console.error('[admin/ledger] POST error:', err);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { ok: false, code: 'internal_error', message: 'Internal server error' },
       { status: 500 }
     );
   }
