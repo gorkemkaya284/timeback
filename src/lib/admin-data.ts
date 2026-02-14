@@ -36,7 +36,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   const [profilesRes, ledgerRes, redemptionsRes, auditRes] = await Promise.all([
     client.from('profiles').select('user_id', { count: 'exact', head: true }),
     client.from('points_ledger').select('delta'),
-    client.from('redemptions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    client.from('reward_redemptions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     client.from('audit_log').select('*').order('created_at', { ascending: false }).limit(10),
   ]);
 

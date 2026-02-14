@@ -2,175 +2,109 @@ import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { allowAdminAccess } from '@/lib/utils-server';
-import { writeAuditLog } from '@/lib/admin-audit';
+import type { Json } from '@/types/database.types';
 
+/**
+ * GET /api/admin/rewards
+ * Returns rewards + variants (all, active and inactive). Service role.
+ */
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user || !allowAdminAccess(user)) {
+    if (!user || !(await allowAdminAccess(user))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const adminClient = getAdminClient();
-    if (!adminClient) {
-      return NextResponse.json({ rewards: [] });
+    const admin = getAdminClient();
+    if (!admin) {
+      return NextResponse.json({ rewards: [], variants: [] });
     }
 
-    const { data: rewards, error } = await adminClient
+    const { data: rewards, error: rewardsError } = await admin
       .from('rewards')
       .select('*')
-      .order('id', { ascending: false });
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch rewards' },
-        { status: 500 }
-      );
+    if (rewardsError) {
+      console.error('Admin rewards fetch:', rewardsError);
+      return NextResponse.json({ error: 'Failed to fetch rewards' }, { status: 500 });
     }
 
-    return NextResponse.json({ rewards: rewards || [] });
-  } catch (error) {
-    console.error('Admin rewards error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const { data: variants, error: variantsError } = await admin
+      .from('reward_variants')
+      .select('*')
+      .order('denomination_tl', { ascending: true });
+
+    if (variantsError) {
+      console.error('Admin variants fetch:', variantsError);
+      return NextResponse.json({ error: 'Failed to fetch variants' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      rewards: rewards ?? [],
+      variants: variants ?? [],
+    });
+  } catch (err) {
+    console.error('Admin rewards GET:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+/**
+ * POST /api/admin/rewards
+ * Body: { title, provider?, kind?, image_url?, is_active?, sort_order? }
+ */
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || !allowAdminAccess(user)) {
+    if (!user || !(await allowAdminAccess(user))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { title, points_cost, stock, status } = body;
-
-    if (!title || typeof title !== 'string' || title.trim() === '') {
+    const admin = getAdminClient();
+    if (!admin) {
       return NextResponse.json(
-        { error: 'Title required' },
-        { status: 400 }
-      );
-    }
-    const cost = typeof points_cost === 'number' ? points_cost : parseInt(String(points_cost), 10);
-    if (isNaN(cost) || cost < 1) {
-      return NextResponse.json(
-        { error: 'points_cost must be at least 1' },
-        { status: 400 }
-      );
-    }
-
-    const adminClient = getAdminClient();
-    if (!adminClient) {
-      return NextResponse.json(
-        { error: 'Admin client disabled. Set SUPABASE_SERVICE_ROLE_KEY for admin writes.' },
+        { error: 'Admin client disabled. Set SUPABASE_SERVICE_ROLE_KEY.' },
         { status: 503 }
       );
     }
 
-    const { data: reward, error } = await adminClient
+    const body = await request.json();
+    const title = body.title?.trim();
+    if (!title) {
+      return NextResponse.json({ error: 'title required' }, { status: 400 });
+    }
+
+    const { data, error } = await admin
       .from('rewards')
       .insert({
-        title: title.trim(),
-        points_cost: cost,
-        stock: Math.max(0, parseInt(String(stock || 0), 10) || 0),
-        status: status === 'inactive' ? 'inactive' : 'active',
+        title,
+        provider: body.provider ?? 'manual',
+        kind: body.kind ?? 'gift',
+        image_url: body.image_url ?? null,
+        is_active: body.is_active !== false,
+        sort_order: typeof body.sort_order === 'number' ? body.sort_order : 0,
       })
       .select()
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { error: 'Failed to create reward' },
-        { status: 500 }
-      );
+      console.error('Admin rewards create:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const r = reward as { id: string; title: string; points_cost: number };
-    await writeAuditLog({
-      actor: user.email || user.id,
+    await admin.from('admin_actions').insert({
+      actor_id: user.id,
       action: 'create_reward',
       target_type: 'reward',
-      target_id: String(r.id),
-      payload: { title: r.title, points_cost: r.points_cost },
+      target_id: data.id,
+      meta: { title, kind: data.kind } as Json,
     });
 
-    return NextResponse.json({ reward });
-  } catch (error) {
-    console.error('Admin create reward error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: Request) {
-  try {
-    const user = await getCurrentUser();
-    if (!user || !allowAdminAccess(user)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const rewardId = searchParams.get('id');
-
-    if (!rewardId) {
-      return NextResponse.json(
-        { error: 'Reward ID required' },
-        { status: 400 }
-      );
-    }
-
-    const body = await request.json();
-    const updateData: Record<string, unknown> = {};
-    if (body.title !== undefined) updateData.title = String(body.title).trim();
-    if (body.points_cost !== undefined) updateData.points_cost = Math.max(1, parseInt(String(body.points_cost), 10) || 0);
-    if (body.stock !== undefined) updateData.stock = Math.max(0, parseInt(String(body.stock), 10) || 0);
-    if (body.status !== undefined) updateData.status = body.status === 'inactive' ? 'inactive' : 'active';
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
-    }
-
-    const adminClient = getAdminClient();
-    if (!adminClient) {
-      return NextResponse.json(
-        { error: 'Admin client disabled. Set SUPABASE_SERVICE_ROLE_KEY for admin writes.' },
-        { status: 503 }
-      );
-    }
-
-    const { data: reward, error } = await adminClient
-      .from('rewards')
-      .update(updateData)
-      .eq('id', rewardId)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'Failed to update reward' },
-        { status: 500 }
-      );
-    }
-
-    await writeAuditLog({
-      actor: user.email || user.id,
-      action: 'update_reward',
-      target_type: 'reward',
-      target_id: rewardId,
-      payload: updateData,
-    });
-
-    return NextResponse.json({ reward });
-  } catch (error) {
-    console.error('Admin update reward error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ reward: data });
+  } catch (err) {
+    console.error('Admin rewards POST:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

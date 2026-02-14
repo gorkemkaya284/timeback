@@ -14,9 +14,8 @@ export type WithdrawalRow = {
 };
 
 /**
- * Fetches user withdrawals. Queries redemptions table (id, created_at, points, status, etc).
- * Status from withdrawals/redemptions only — no ledger-based logic.
- * When withdrawals view is deployed, switch to .from('withdrawals').
+ * Fetches user withdrawals from reward_redemptions.
+ * Joins reward_variants for payout_tl, rewards for title.
  */
 export async function getUserWithdrawals(
   userId: string,
@@ -25,8 +24,8 @@ export async function getUserWithdrawals(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from('redemptions')
-    .select('id, created_at, points_spent, status, reward_id, rewards(title)')
+    .from('reward_redemptions')
+    .select('id, created_at, cost_points, payout_tl, status, reward_variants(rewards(title))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -36,16 +35,17 @@ export async function getUserWithdrawals(
   }
 
   return (data ?? []).map((r) => {
-    const rewards = (r as { rewards?: { title?: string } | null }).rewards;
+    const variant = (r as { reward_variants?: { rewards?: { title?: string } | null } | null }).reward_variants;
+    const rewards = variant && typeof variant === 'object' ? variant.rewards : null;
     return {
       id: String(r.id),
       created_at: r.created_at,
-      amount_tl: null,
-      points: r.points_spent,
+      amount_tl: (r as { payout_tl?: number }).payout_tl ?? null,
+      points: (r as { cost_points?: number }).cost_points ?? 0,
       status: String(r.status ?? 'pending'),
       method: 'reward',
-      reference: r.reward_id != null ? String(r.reward_id) : null,
-      processed_at: null,
+      reference: (r as { reward_variant_id?: string }).reward_variant_id ?? null,
+      processed_at: (r as { reviewed_at?: string }).reviewed_at ?? null,
       reward_title: rewards?.title ?? undefined,
     };
   });

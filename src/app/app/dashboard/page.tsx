@@ -33,15 +33,15 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .gte('created_at', isoToday),
     supabase
-      .from('redemptions')
-      .select('points_spent')
+      .from('reward_redemptions')
+      .select('cost_points')
       .eq('user_id', user.id)
       .eq('status', 'pending'),
     getUserWithdrawals(user.id, { limit: 10 }),
   ]);
 
   const earnToday = (todayRows ?? []).filter((r) => r.delta > 0).reduce((s, r) => s + r.delta, 0);
-  const pendingEarnings = (pendingRedemptions ?? []).reduce((s, r) => s + r.points_spent, 0);
+  const pendingEarnings = (pendingRedemptions ?? []).reduce((s, r) => s + ((r as { cost_points?: number }).cost_points ?? 0), 0);
   const lastWithdrawalStatus = withdrawals[0]?.status ?? null;
 
   const recentWithdrawals = withdrawals.slice(0, 5);

@@ -166,62 +166,140 @@ export interface Database {
         Row: {
           id: string;
           title: string;
-          description: string | null;
-          points_cost: number;
-          stock: number;
-          status: 'active' | 'inactive' | 'out_of_stock';
+          provider: string;
+          kind: string;
+          image_url: string | null;
+          is_active: boolean;
+          sort_order: number;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
           title: string;
-          description?: string | null;
-          points_cost: number;
-          stock?: number;
-          status?: 'active' | 'inactive' | 'out_of_stock';
+          provider?: string;
+          kind?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
           title?: string;
-          description?: string | null;
-          points_cost?: number;
-          stock?: number;
-          status?: 'active' | 'inactive' | 'out_of_stock';
+          provider?: string;
+          kind?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
-          updated_at?: string;
         };
         Relationships: [];
       };
-      redemptions: {
+      reward_variants: {
+        Row: {
+          id: string;
+          reward_id: string;
+          denomination_tl: number;
+          cost_points: number;
+          stock: number | null;
+          daily_limit_per_user: number | null;
+          min_account_age_days: number | null;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          reward_id: string;
+          denomination_tl: number;
+          cost_points: number;
+          stock?: number | null;
+          daily_limit_per_user?: number | null;
+          min_account_age_days?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          reward_id?: string;
+          denomination_tl?: number;
+          cost_points?: number;
+          stock?: number | null;
+          daily_limit_per_user?: number | null;
+          min_account_age_days?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      reward_redemptions: {
         Row: {
           id: string;
           user_id: string;
-          reward_id: string;
-          points_spent: number;
-          status: 'pending' | 'fulfilled' | 'rejected';
+          reward_variant_id: string;
+          cost_points: number;
+          payout_tl: number;
+          status: string;
+          idempotency_key: string;
+          note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
           created_at: string;
-          admin_note?: string | null;
         };
         Insert: {
           id?: string;
           user_id: string;
-          reward_id: string;
-          points_spent: number;
-          status?: 'pending' | 'fulfilled' | 'rejected';
+          reward_variant_id: string;
+          cost_points: number;
+          payout_tl: number;
+          status?: string;
+          idempotency_key: string;
+          note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
           created_at?: string;
-          admin_note?: string | null;
         };
         Update: {
           id?: string;
           user_id?: string;
-          reward_id?: string;
-          points_spent?: number;
-          status?: 'pending' | 'fulfilled' | 'rejected';
+          reward_variant_id?: string;
+          cost_points?: number;
+          payout_tl?: number;
+          status?: string;
+          idempotency_key?: string;
+          note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
           created_at?: string;
-          admin_note?: string | null;
+        };
+        Relationships: [];
+      };
+      admin_actions: {
+        Row: {
+          id: string;
+          actor_id: string | null;
+          action: string;
+          target_type: string | null;
+          target_id: string | null;
+          meta: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_id?: string | null;
+          action: string;
+          target_type?: string | null;
+          target_id?: string | null;
+          meta?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_id?: string | null;
+          action?: string;
+          target_type?: string | null;
+          target_id?: string | null;
+          meta?: Json;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -390,8 +468,17 @@ export interface Database {
         Returns: { user_id: string; total_points: number | string; last_activity: string | null }[];
       };
       redeem_reward: {
-        Args: { p_user_id: string; p_reward_id: string | number };
-        Returns: { success: boolean; error?: string; redemption_id?: string; points_spent?: number; new_points?: number; reward_title?: string } | null;
+        Args: { p_variant_id: string; p_idempotency_key: string; p_note?: string | null };
+        Returns: {
+          success: boolean;
+          error?: string;
+          message?: string;
+          redemption_id?: string;
+          status?: string;
+          cost_points?: number;
+          payout_tl?: number;
+          idempotent?: boolean;
+        } | null;
       };
       credit_offerwall_event: {
         Args: {

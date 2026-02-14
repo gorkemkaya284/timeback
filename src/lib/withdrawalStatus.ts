@@ -37,6 +37,7 @@ const VARIANT_TO_CANONICAL: Record<string, WithdrawalStatus> = {
   PENDING: 'pending',
   Pending: 'pending',
   cancelled: 'rejected',
+  canceled: 'rejected',
   failed: 'rejected',
 };
 

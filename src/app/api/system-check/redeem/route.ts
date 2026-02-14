@@ -5,7 +5,7 @@ import { getAdminClient } from '@/lib/supabase/admin';
 import { canUserAct } from '@/lib/utils-server';
 
 /**
- * POST /api/system-check/redeem — redeem cheapest active reward for current user (test only).
+ * POST /api/system-check/redeem — redeem cheapest active variant for current user (test only).
  */
 export async function POST() {
   const user = await getCurrentUser();
@@ -21,32 +21,29 @@ export async function POST() {
   const supabase = await createClient();
 
   const client = admin ?? supabase;
-  const { data: rewards, error: rewardsError } = await client
-    .from('rewards')
-    .select('id, points_cost')
-    .eq('status', 'active')
-    .order('points_cost', { ascending: true })
-    .limit(1);
 
-  if (rewardsError || !rewards?.length) {
+  const { data: variants, error: variantsError } = await client
+    .from('reward_variants')
+    .select('id, cost_points')
+    .eq('is_active', true)
+    .order('cost_points', { ascending: true })
+    .limit(5);
+
+  if (variantsError || !variants?.length) {
     return NextResponse.json(
-      { error: 'No active reward found' },
+      { error: 'No active variant found' },
       { status: 404 }
     );
   }
 
-  const reward = rewards[0];
-  const rewardId = typeof reward.id === 'number' ? reward.id : parseInt(String(reward.id), 10);
-  if (Number.isNaN(rewardId)) {
-    return NextResponse.json(
-      { error: 'Invalid reward id' },
-      { status: 500 }
-    );
-  }
+  const variant = variants[0];
+
+  const idempotencyKey = crypto.randomUUID();
 
   const { data, error } = await supabase.rpc('redeem_reward', {
-    p_reward_id: rewardId,
-    p_user_id: user.id,
+    p_variant_id: variant.id,
+    p_idempotency_key: idempotencyKey,
+    p_note: 'system_check',
   });
 
   if (error) {
@@ -56,15 +53,16 @@ export async function POST() {
     );
   }
 
-  if (!data?.success) {
+  const raw = data as Record<string, unknown> | null;
+  if (!raw?.success) {
     return NextResponse.json(
-      { error: data?.error ?? 'Redemption failed' },
+      { error: (raw?.error as string) ?? (raw?.message as string) ?? 'Redemption failed' },
       { status: 400 }
     );
   }
 
   return NextResponse.json({
     success: true,
-    message: `Çekim yapıldı: ${data.reward_title ?? rewardId}, ${data.points_spent ?? 0} puan`,
+    message: `Çekim yapıldı: ${variant.id}, ${raw.cost_points ?? variant.cost_points} puan`,
   });
 }
