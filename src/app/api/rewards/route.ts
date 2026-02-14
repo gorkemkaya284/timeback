@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin';
 
-/** Variant shape: id (UUID), denomination_tl, cost_points always present. */
+export const dynamic = 'force-dynamic';
+
+/** Variant: id (UUID), denomination_tl, cost_points always present. */
 type VariantRow = {
   id: string;
   reward_id: string;
@@ -14,7 +16,7 @@ type VariantRow = {
   created_at?: string;
 };
 
-/** Reward shape for UI. */
+/** Reward for UI. */
 type RewardRow = {
   id: string;
   title: string;
@@ -26,22 +28,55 @@ type RewardRow = {
   created_at?: string;
 };
 
+function errPayload(
+  reason: string,
+  hasServiceRole: boolean,
+  error?: { code?: string; message?: string; details?: string; hint?: string }
+) {
+  return {
+    ok: false as const,
+    source: 'db' as const,
+    reason,
+    env: { hasServiceRole },
+    error: error
+      ? {
+          code: error.code ?? null,
+          message: error.message ?? null,
+          details: error.details ?? null,
+          hint: error.hint ?? null,
+        }
+      : undefined,
+  };
+}
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, max-age=0',
+};
+
 /**
  * GET /api/rewards
- * Service role: rewards (is_active=true) + variants (is_active=true).
- * Each variant has id (UUID), denomination_tl, cost_points. Never exposes service role key.
+ * Debug-friendly: ok, source, rewardsCount, variantsCount; on error reason + env + error.
  */
 export async function GET() {
-  try {
-    const supabase = getAdminClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { rewards: [], variants: [], error: 'Service unavailable' },
-        { status: 503 }
-      );
-    }
+  const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // Rewards: try with provider first; if column missing (42703), retry without provider
+  if (!hasServiceRole) {
+    return NextResponse.json(
+      errPayload('MISSING_SERVICE_ROLE', false),
+      { status: 500, headers: noStoreHeaders }
+    );
+  }
+
+  const supabase = getAdminClient();
+  if (!supabase) {
+    return NextResponse.json(
+      errPayload('ADMIN_CLIENT_NULL', true),
+      { status: 500, headers: noStoreHeaders }
+    );
+  }
+
+  try {
+    // Rewards: full columns first; if 42703 (column missing), retry without provider
     const rewardsRes = await supabase
       .from('rewards')
       .select('id, title, provider, kind, image_url, is_active, sort_order, created_at')
@@ -55,11 +90,17 @@ export async function GET() {
         .select('id, title, kind, image_url, is_active, sort_order, created_at')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
-      if (fallback.error || !fallback.data?.length) {
-        console.error('GET /api/rewards:', rewardsRes.error ?? fallback.error);
+      if (fallback.error) {
+        const e = fallback.error as { code?: string; message?: string; details?: string; hint?: string };
         return NextResponse.json(
-          { rewards: [], variants: [], error: 'Fetch failed' },
-          { status: 500 }
+          errPayload('REWARDS_FETCH_FAILED', true, e),
+          { status: 500, headers: noStoreHeaders }
+        );
+      }
+      if (!fallback.data?.length) {
+        return NextResponse.json(
+          { ok: true, source: 'db', rewardsCount: 0, variantsCount: 0, rewards: [], variants: [] },
+          { headers: noStoreHeaders }
         );
       }
       rewardsList = (fallback.data as RewardRow[]).map((r) => ({
@@ -73,10 +114,10 @@ export async function GET() {
         created_at: r.created_at ?? new Date().toISOString(),
       }));
     } else if (rewardsRes.error) {
-      console.error('GET /api/rewards:', rewardsRes.error);
+      const e = rewardsRes.error as { code?: string; message?: string; details?: string; hint?: string };
       return NextResponse.json(
-        { rewards: [], variants: [], error: 'Fetch failed' },
-        { status: 500 }
+        errPayload('REWARDS_FETCH_FAILED', true, e),
+        { status: 500, headers: noStoreHeaders }
       );
     } else {
       rewardsList = (rewardsRes.data ?? []).map((r) => ({
@@ -92,14 +133,13 @@ export async function GET() {
       .order('denomination_tl', { ascending: true });
 
     if (variantsRes.error) {
-      console.error('GET /api/rewards:', variantsRes.error);
+      const e = variantsRes.error as { code?: string; message?: string; details?: string; hint?: string };
       return NextResponse.json(
-        { rewards: [], variants: [], error: 'Fetch failed' },
-        { status: 500 }
+        errPayload('VARIANTS_FETCH_FAILED', true, e),
+        { status: 500, headers: noStoreHeaders }
       );
     }
 
-    const rewards: RewardRow[] = rewardsList;
     const variants: VariantRow[] = (variantsRes.data ?? []).map((v) => ({
       id: v.id,
       reward_id: v.reward_id,
@@ -112,15 +152,30 @@ export async function GET() {
       created_at: v.created_at ?? new Date().toISOString(),
     }));
 
-    return NextResponse.json({
-      rewards,
-      variants,
-    });
-  } catch (err) {
-    console.error('GET /api/rewards error:', err);
+    const rewardsCount = rewardsList.length;
+    const variantsCount = variants.length;
+
     return NextResponse.json(
-      { rewards: [], variants: [], error: 'Server error' },
-      { status: 500 }
+      {
+        ok: true,
+        source: 'db',
+        rewardsCount,
+        variantsCount,
+        rewards: rewardsList,
+        variants,
+      },
+      { headers: noStoreHeaders }
+    );
+  } catch (err) {
+    const e = err instanceof Error ? err : { message: String(err), code: undefined, details: undefined, hint: undefined };
+    return NextResponse.json(
+      errPayload('SERVER_ERROR', true, {
+        code: (e as { code?: string }).code,
+        message: e.message,
+        details: (e as { details?: string }).details,
+        hint: (e as { hint?: string }).hint,
+      }),
+      { status: 500, headers: noStoreHeaders }
     );
   }
 }

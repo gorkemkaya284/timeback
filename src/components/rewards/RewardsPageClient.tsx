@@ -23,27 +23,32 @@ export default function RewardsPageClient({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch('/api/rewards')
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Fetch failed'))))
-      .then((data) => {
+    fetch('/api/rewards', { cache: 'no-store' })
+      .then((res) => res.json().catch(() => ({})))
+      .then((data: { ok?: boolean; reason?: string; rewardsCount?: number; variantsCount?: number; rewards?: RewardV2[]; variants?: RewardVariantV2[] }) => {
         if (cancelled) return;
-        const r = data.rewards ?? [];
-        const v = data.variants ?? [];
-        if (r.length > 0 && v.length > 0) {
-          setRewards(r);
-          setVariants(v);
+        const ok = data.ok === true;
+        const variantsCount = Number(data.variantsCount ?? 0);
+        const useDb = ok && variantsCount > 0;
+        if (useDb && Array.isArray(data.rewards) && Array.isArray(data.variants)) {
+          setRewards(data.rewards);
+          setVariants(data.variants);
           setUseFallback(false);
         } else {
           setRewards(FALLBACK_REWARDS);
           setVariants(FALLBACK_VARIANTS);
           setUseFallback(true);
+          if (!ok && data.reason) {
+            console.error('[rewards] API error reason:', data.reason, data);
+          }
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) {
           setRewards(FALLBACK_REWARDS);
           setVariants(FALLBACK_VARIANTS);
           setUseFallback(true);
+          console.error('[rewards] Fetch failed:', err);
         }
       })
       .finally(() => {
