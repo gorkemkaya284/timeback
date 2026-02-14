@@ -20,7 +20,7 @@ export async function GET() {
   );
 
   const { data: rewards, error } = await supabase
-    .from('rewards')
+    .from('tb_rewards')
     .select(
       `
       id,
@@ -31,7 +31,7 @@ export async function GET() {
       is_active,
       sort_order,
       created_at,
-      reward_variants (
+      tb_reward_variants (
         id,
         reward_id,
         denomination_tl,
@@ -49,17 +49,17 @@ export async function GET() {
 
   if (error) {
     const msg = error.message ?? '';
-    const useFallbackQueries = msg.includes('reward_variants') || msg.includes('relation') || (error as { code?: string }).code === '42703';
+    const useFallbackQueries = msg.includes('tb_reward_variants') || msg.includes('reward_variants') || msg.includes('relation') || (error as { code?: string }).code === '42703';
     if (useFallbackQueries) {
-      const rRes1 = await supabase.from('rewards').select('id, title, provider, kind, image_url, is_active, sort_order, created_at').eq('is_active', true).order('sort_order', { ascending: true });
+      const rRes1 = await supabase.from('tb_rewards').select('id, title, provider, kind, image_url, is_active, sort_order, created_at').eq('is_active', true).order('sort_order', { ascending: true });
       let rewardsData = rRes1.data ?? [];
       let rewardsError = rRes1.error;
       if (rewardsError && (rewardsError as { code?: string }).code === '42703') {
-        const rRes2 = await supabase.from('rewards').select('id, title, kind, image_url, is_active, sort_order, created_at').eq('is_active', true).order('sort_order', { ascending: true });
+        const rRes2 = await supabase.from('tb_rewards').select('id, title, kind, image_url, is_active, sort_order, created_at').eq('is_active', true).order('sort_order', { ascending: true });
         rewardsData = (rRes2.data ?? []).map((r) => ({ ...r, provider: 'manual' }));
         rewardsError = rRes2.error;
       }
-      const vRes = await supabase.from('reward_variants').select('id, reward_id, denomination_tl, cost_points, stock, daily_limit_per_user, min_account_age_days, is_active, created_at').eq('is_active', true).order('denomination_tl', { ascending: true });
+      const vRes = await supabase.from('tb_reward_variants').select('id, reward_id, denomination_tl, cost_points, stock, daily_limit_per_user, min_account_age_days, is_active, created_at').eq('is_active', true).order('denomination_tl', { ascending: true });
       if (rewardsError || vRes.error) {
         return NextResponse.json(
           { ok: false, reason: 'DB_ERROR', error: { code: rewardsError?.code ?? vRes.error?.code, message: rewardsError?.message ?? vRes.error?.message } },
@@ -92,9 +92,10 @@ export async function GET() {
 
   const rows = rewards ?? [];
   const activeRewards = rows.map((r) => {
-    const { reward_variants: v, ...rest } = r as typeof r & { reward_variants?: Array<{ id: string; reward_id?: string; denomination_tl: number; cost_points: number; is_active?: boolean }> };
-    const active = (v ?? []).filter((x) => x.is_active !== false);
-    return { ...rest, reward_variants: active };
+    const row = r as typeof r & { tb_reward_variants?: Array<{ id: string; reward_id?: string; denomination_tl: number; cost_points: number; is_active?: boolean }> };
+    const v = row.tb_reward_variants ?? [];
+    const active = v.filter((x) => x.is_active !== false);
+    return { ...r, reward_variants: active };
   });
 
   const flatVariants: Array<{
