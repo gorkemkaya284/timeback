@@ -56,11 +56,21 @@ export default function HistoryActivityList({
 }) {
   const [filter, setFilter] = useState<Filter>('all');
 
+  const redemptionsById = useMemo(() => {
+    const map = new Map<string, RedemptionWithReward>();
+    redemptions.forEach((r) => {
+      const key = String(r.id);
+      map.set(key, r);
+    });
+    return map;
+  }, [redemptions]);
+
   const items: ActivityItem[] = useMemo(() => {
     return ledgerEntries.map((e) => {
       const isCredit = e.delta > 0;
-      const redemptionFull = e.ref_type === 'redemption' && e.ref_id
-        ? redemptions.find((r) => String(r.id) === String(e.ref_id))
+      const isRedemptionRef = (e.ref_type === 'redemption' || e.ref_type === 'redeem') && e.ref_id;
+      const redemptionFull = isRedemptionRef
+        ? redemptionsById.get(String(e.ref_id)) ?? null
         : null;
       const status: RedemptionStatusLabel = redemptionFull
         ? getRedemptionStatusLabel(redemptionFull.status)
@@ -80,7 +90,7 @@ export default function HistoryActivityList({
         isPending: status === 'Beklemede',
       };
     });
-  }, [ledgerEntries, redemptions]);
+  }, [ledgerEntries, redemptionsById]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return items;

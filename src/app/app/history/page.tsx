@@ -19,23 +19,18 @@ export default async function HistoryPage() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: redemptions } = await supabase
+  const { data: redemptions, error: redemptionsError } = await supabase
     .from('redemptions')
-    .select(`
-      id,
-      status,
-      points_spent,
-      created_at,
-      rewards (title)
-    `)
+    .select('id, status, points_spent, created_at, rewards(title)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
-  const redemptionsWithTitle = (redemptions ?? []).map((r) => {
+  const redemptionsList = redemptionsError ? [] : (redemptions ?? []);
+  const redemptionsWithTitle = redemptionsList.map((r) => {
     const reward = (r as { rewards?: { title?: string } | null }).rewards;
     return {
       id: r.id,
-      status: r.status,
+      status: String(r.status ?? 'pending'),
       points_spent: r.points_spent,
       created_at: r.created_at,
       reward_title: reward?.title ?? undefined,
