@@ -27,8 +27,37 @@ export default function RedeemButton({
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
+  const balance = Math.max(0, Number(withdrawable) || 0);
+  const required_points = Math.max(0, Number(pointsCost) || 0);
+  const minPts = Math.max(1, Number(minPoints) || 100);
+
+  const balanceLoading = typeof withdrawable !== 'number' || isNaN(withdrawable);
+  const insufficientMin = balance < minPts;
+  const insufficientForReward = balance >= minPts && balance < required_points;
+
+  let buttonText = 'Çek';
+  let disabled = loading || isClosed;
+
+  if (isClosed) {
+    buttonText = 'Yakında';
+  } else if (balanceLoading) {
+    buttonText = 'Bakiye yükleniyor';
+    disabled = true;
+  } else if (balance === 0 || insufficientMin) {
+    buttonText = `Minimum çekim: ${minPts} P`;
+    disabled = true;
+  } else if (insufficientForReward) {
+    buttonText = `Yetersiz bakiye (${required_points} P gerekir)`;
+    disabled = true;
+  } else if (!canRedeem) {
+    buttonText = 'Yetersiz bakiye';
+    disabled = true;
+  }
+
   const handleRedeem = async () => {
-    if (!canRedeem) return;
+    if (disabled || loading) return;
+    if (balance < minPts) return;
+    if (balance < required_points) return;
 
     setLoading(true);
     setError('');
@@ -67,17 +96,6 @@ export default function RedeemButton({
       setLoading(false);
     }
   };
-
-  let buttonText = 'Çek';
-  let disabled = !canRedeem || loading;
-
-  if (isClosed) {
-    buttonText = 'Yakında';
-    disabled = true;
-  } else if (withdrawable < minPoints || withdrawable < pointsCost) {
-    buttonText = 'Yetersiz bakiye';
-    disabled = true;
-  }
 
   return (
     <div className={compact ? 'inline-block' : ''}>

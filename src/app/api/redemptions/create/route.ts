@@ -1,51 +1,77 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { canUserAct } from '@/lib/utils-server';
+import { getPointsSummary } from '@/lib/points-ledger';
 import { MIN_REDEMPTION_POINTS } from '@/config/rewards';
 
 /**
  * POST /api/redemptions/create
  * Body: { reward_id: number } or { rewardId: number }
  * User: getCurrentUser() — uses DEV_USER_ID when DEV_MODE.
- * Calls atomic redeem_reward RPC (ledger deduct, stock decrease, redemption record).
+ * Balance: getPointsSummary (aynı kaynak ödül sayfasıyla).
  */
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Oturum açmanız gerekiyor' }, { status: 401 });
     }
 
     if (!(await canUserAct(user.id))) {
-      return NextResponse.json({ error: 'Account is banned' }, { status: 403 });
+      return NextResponse.json({ error: 'Hesabınız kısıtlı' }, { status: 403 });
     }
 
     const body = await request.json();
     const rewardIdRaw = body.reward_id ?? body.rewardId;
     if (rewardIdRaw == null) {
-      return NextResponse.json({ error: 'Reward ID required' }, { status: 400 });
+      return NextResponse.json({ error: 'Ödül ID gerekli' }, { status: 400 });
     }
 
-    const rewardIdNum = typeof rewardIdRaw === 'string' ? parseInt(rewardIdRaw, 10) : rewardIdRaw;
-    if (isNaN(rewardIdNum)) {
-      return NextResponse.json({ error: 'Invalid reward ID' }, { status: 400 });
+    const rewardIdNum = typeof rewardIdRaw === 'string' ? parseInt(rewardIdRaw, 10) : Number(rewardIdRaw);
+    if (isNaN(rewardIdNum) || rewardIdNum < 1) {
+      return NextResponse.json({ error: 'Geçersiz ödül ID' }, { status: 400 });
     }
 
-    const adminClient = getAdminClient();
     const supabase = await createClient();
+    const { totalPoints: rawBalance } = await getPointsSummary(user.id);
+    const balance = Math.max(0, Number(rawBalance) || 0);
 
-    if (adminClient) {
-      const { data: total } = await adminClient.rpc('get_user_points', { p_user_id: user.id });
-      const totalPoints = Math.max(0, Number(total) || 0);
+    const { data: pendingRedemptions } = await supabase
+      .from('redemptions')
+      .select('points_spent')
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    const pendingPoints = (pendingRedemptions ?? []).reduce((s, r) => s + Number(r.points_spent ?? 0), 0);
+    const withdrawable = Math.max(0, balance - pendingPoints);
 
-      if (totalPoints < MIN_REDEMPTION_POINTS) {
-        return NextResponse.json(
-          { error: `Minimum çekim: ${MIN_REDEMPTION_POINTS} P` },
-          { status: 400 }
-        );
-      }
+    const { data: reward } = await supabase
+      .from('rewards')
+      .select('points_cost')
+      .eq('id', String(rewardIdNum))
+      .single();
+    const required_points = reward?.points_cost != null ? Number(reward.points_cost) : NaN;
+
+    if (isNaN(balance) || (balance === 0 && typeof rawBalance !== 'number')) {
+      return NextResponse.json(
+        { error: 'Bakiyen okunamadı. Sayfayı yenile.' },
+        { status: 400 }
+      );
+    }
+    if (withdrawable < MIN_REDEMPTION_POINTS) {
+      return NextResponse.json(
+        { error: `Minimum çekim: ${MIN_REDEMPTION_POINTS} P` },
+        { status: 400 }
+      );
+    }
+    if (isNaN(required_points) || required_points < 1) {
+      return NextResponse.json({ error: 'Ödül bulunamadı' }, { status: 400 });
+    }
+    if (withdrawable < required_points) {
+      return NextResponse.json(
+        { error: `Yetersiz bakiye. Bu ödül için ${Math.floor(required_points)} P gerekir.` },
+        { status: 400 }
+      );
     }
 
     const { data, error } = await supabase.rpc('redeem_reward', {
@@ -56,13 +82,13 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Redeem RPC error:', error);
       return NextResponse.json(
-        { error: 'Failed to process redemption' },
+        { error: 'Çekim işlenemedi' },
         { status: 500 }
       );
     }
 
     if (!data || !data.success) {
-      const msg = data?.error || 'Redemption failed';
+      const msg = data?.error || 'Çekim başarısız';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
@@ -76,7 +102,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Redemption error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Sunucu hatası' },
       { status: 500 }
     );
   }
