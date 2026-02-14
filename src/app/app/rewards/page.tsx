@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { getPointsSummary } from '@/lib/points-ledger';
+import { MIN_REDEMPTION_POINTS } from '@/config/rewards';
 import RewardsFeedbackBanner from '@/components/rewards/RewardsFeedbackBanner';
 import RewardsList from '@/components/rewards/RewardsList';
 import WithdrawBalanceBar from '@/components/rewards/WithdrawBalanceBar';
@@ -21,7 +22,6 @@ export default async function RewardsPage() {
     .order('points_cost', { ascending: true });
 
   const { totalPoints: userPoints } = await getPointsSummary(user.id);
-  const minThreshold = parseInt(process.env.MIN_REDEMPTION_THRESHOLD || '100', 10);
 
   const { data: pendingRedemptions } = await supabase
     .from('redemptions')
@@ -74,7 +74,8 @@ export default async function RewardsPage() {
               status: r.status,
             }))}
             userPoints={userPoints}
-            minThreshold={minThreshold}
+            withdrawable={withdrawable}
+            minPoints={MIN_REDEMPTION_POINTS}
           />
         )}
 

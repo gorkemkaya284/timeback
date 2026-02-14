@@ -1,6 +1,4 @@
-import { formatPoints } from '@/lib/utils';
-
-const POINTS_TO_TRY = 100;
+import { formatPoints, formatTry, pointsToTry } from '@/lib/currency';
 
 type Props = {
   balance: number;
@@ -27,7 +25,7 @@ export default function DashboardSummaryCards({
   pendingEarnings,
   lastRedemptionStatus,
 }: Props) {
-  const tryApprox = (balance / POINTS_TO_TRY).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+  const tryStr = formatTry(pointsToTry(balance));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -39,7 +37,7 @@ export default function DashboardSummaryCards({
           {formatPoints(balance)}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          puan (~{tryApprox} ₺)
+          puan (~{tryStr})
         </p>
       </div>
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">

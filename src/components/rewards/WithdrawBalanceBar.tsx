@@ -1,6 +1,4 @@
-import { formatPoints } from '@/lib/utils';
-
-const POINTS_TO_TRY = 100; // 100 puan ≈ 1₺
+import { formatPoints, formatTry, pointsToTry } from '@/lib/currency';
 
 type Props = {
   balance: number;
@@ -9,8 +7,8 @@ type Props = {
 };
 
 export default function WithdrawBalanceBar({ balance, withdrawable, pending }: Props) {
-  const tryApprox = (balance / POINTS_TO_TRY).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
-  const pendingTry = (pending / POINTS_TO_TRY).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+  const tryApprox = formatTry(pointsToTry(balance));
+  const pendingTry = formatTry(pointsToTry(pending));
 
   return (
     <div className="flex flex-wrap items-center gap-4 sm:gap-6 py-4 px-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
@@ -22,7 +20,7 @@ export default function WithdrawBalanceBar({ balance, withdrawable, pending }: P
           {formatPoints(balance)}
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400">puan</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">(~{tryApprox} ₺)</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">(~{tryApprox})</span>
       </div>
       <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
       <div className="flex items-baseline gap-2">
@@ -41,7 +39,7 @@ export default function WithdrawBalanceBar({ balance, withdrawable, pending }: P
         <span className="text-base font-semibold text-amber-600 dark:text-amber-400">
           {formatPoints(pending)}
         </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">(~{pendingTry} ₺)</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">(~{pendingTry})</span>
       </div>
     </div>
   );

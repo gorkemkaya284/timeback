@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/dev';
 import { canUserAct } from '@/lib/utils-server';
+import { MIN_REDEMPTION_POINTS } from '@/config/rewards';
 
 /**
  * POST /api/redemptions/create
@@ -36,12 +37,12 @@ export async function POST(request: Request) {
     const supabase = await createClient();
 
     if (adminClient) {
-      const minThreshold = parseInt(process.env.MIN_REDEMPTION_THRESHOLD || '100', 10);
       const { data: total } = await adminClient.rpc('get_user_points', { p_user_id: user.id });
-      const totalPoints = typeof total === 'number' ? total : 0;
-      if (totalPoints < minThreshold) {
+      const totalPoints = Math.max(0, Number(total) || 0);
+
+      if (totalPoints < MIN_REDEMPTION_POINTS) {
         return NextResponse.json(
-          { error: `Minimum ${minThreshold} points required to redeem` },
+          { error: `Minimum çekim: ${MIN_REDEMPTION_POINTS} P` },
           { status: 400 }
         );
       }

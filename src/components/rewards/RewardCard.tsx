@@ -23,15 +23,17 @@ const CATEGORY_ICONS: Record<string, string> = {
 export default function RewardCard({
   reward,
   userPoints,
-  minThreshold,
+  withdrawable,
+  minPoints,
 }: {
   reward: Reward;
   userPoints: number;
-  minThreshold: number;
+  withdrawable: number;
+  minPoints: number;
 }) {
   const canRedeem =
-    userPoints >= reward.points_cost &&
-    userPoints >= minThreshold &&
+    withdrawable >= reward.points_cost &&
+    withdrawable >= minPoints &&
     reward.stock > 0 &&
     reward.status === 'active';
   const category = (reward.category ?? 'other') as keyof typeof CATEGORY_ICONS;
@@ -66,8 +68,8 @@ export default function RewardCard({
           rewardId={reward.id}
           pointsCost={reward.points_cost}
           canRedeem={canRedeem}
-          userPoints={userPoints}
-          minThreshold={minThreshold}
+          withdrawable={withdrawable}
+          minPoints={minPoints}
           isClosed={reward.status !== 'active' || reward.stock <= 0}
         />
       </div>

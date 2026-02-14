@@ -7,8 +7,8 @@ export default function RedeemButton({
   rewardId,
   pointsCost,
   canRedeem,
-  userPoints,
-  minThreshold,
+  withdrawable,
+  minPoints,
   compact,
   isClosed,
   onError,
@@ -16,8 +16,8 @@ export default function RedeemButton({
   rewardId: number;
   pointsCost: number;
   canRedeem: boolean;
-  userPoints: number;
-  minThreshold: number;
+  withdrawable: number;
+  minPoints: number;
   compact?: boolean;
   isClosed?: boolean;
   onError?: (message: string) => void;
@@ -74,7 +74,7 @@ export default function RedeemButton({
   if (isClosed) {
     buttonText = 'Yakında';
     disabled = true;
-  } else if (userPoints < minThreshold || userPoints < pointsCost) {
+  } else if (withdrawable < minPoints || withdrawable < pointsCost) {
     buttonText = 'Yetersiz bakiye';
     disabled = true;
   }

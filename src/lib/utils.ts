@@ -24,10 +24,8 @@ export function calculatePoints(ledgerEntries: { delta: number }[]): number {
   return ledgerEntries.reduce((total, entry) => total + entry.delta, 0);
 }
 
-// Format points for display
-export function formatPoints(points: number): string {
-  return new Intl.NumberFormat('en-US').format(points);
-}
+// Format points for display (re-export from currency for consistency)
+export { formatPoints } from '@/lib/currency';
 
 // Check if user is admin by env allowlist (Option 2 fallback)
 export function isAdminEmail(email: string | null | undefined): boolean {

@@ -1,6 +1,4 @@
-import { formatPoints } from '@/lib/utils';
-
-const POINTS_TO_USD = 100; // 100 puan ≈ 1$
+import { formatPoints, formatTry, pointsToTry } from '@/lib/currency';
 
 type Props = {
   balance: number;
@@ -9,7 +7,7 @@ type Props = {
 };
 
 export default function EarningOverviewBar({ balance, todayEarned, pending }: Props) {
-  const usdApprox = (balance / POINTS_TO_USD).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+  const tryStr = formatTry(pointsToTry(balance));
 
   return (
     <div className="flex flex-wrap items-center gap-3 sm:gap-6 py-4 px-4 sm:px-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
@@ -21,7 +19,7 @@ export default function EarningOverviewBar({ balance, todayEarned, pending }: Pr
           {formatPoints(balance)}
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400">puan</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">(~{usdApprox} $)</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">(~{tryStr})</span>
       </div>
       <div className="h-4 w-px bg-gray-200 dark:bg-gray-600" />
       <div className="flex items-baseline gap-2">

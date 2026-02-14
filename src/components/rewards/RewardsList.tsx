@@ -49,11 +49,13 @@ function inferCategory(r: Reward): RewardCategory {
 export default function RewardsList({
   rewards,
   userPoints,
-  minThreshold,
+  withdrawable,
+  minPoints,
 }: {
   rewards: Reward[];
   userPoints: number;
-  minThreshold: number;
+  withdrawable: number;
+  minPoints: number;
 }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<RewardCategory>('all');
@@ -122,7 +124,8 @@ export default function RewardsList({
               key={reward.id}
               reward={reward}
               userPoints={userPoints}
-              minThreshold={minThreshold}
+              withdrawable={withdrawable}
+              minPoints={minPoints}
             />
           ))}
         </div>
