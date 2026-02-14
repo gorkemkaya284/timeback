@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Static export (output: 'export') disabled - Supabase auth + admin panel require server
+  // No output: 'export' — API routes and SSR require Node server (Vercel serverless).
 };
 
 export default nextConfig;

@@ -2,10 +2,13 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Middleware refreshes Supabase session. Matcher EXCLUDES /auth/* — auth pages
- * accessible when not logged in.
+ * Middleware refreshes Supabase session.
+ * Matcher EXCLUDES /api so API routes are never touched.
  */
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -33,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
