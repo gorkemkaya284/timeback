@@ -49,36 +49,41 @@ export async function POST(request: Request) {
 
     if (error) {
       const err = error as { code?: string; message?: string; details?: string; hint?: string };
-      console.error('Redeem RPC error:', {
-        code: err.code,
-        message: err.message,
-        details: err.details,
-        hint: err.hint,
-      });
-      // Ensure error.code / message / details / hint are logged (for debugging function/uuid issues)
-      if (err.code) console.error('[redeem] error.code:', err.code);
-      if (err.message) console.error('[redeem] error.message:', err.message);
-      if (err.details) console.error('[redeem] error.details:', err.details);
-      if (err.hint) console.error('[redeem] error.hint:', err.hint);
+      const errPayload = {
+        code: err.code ?? null,
+        message: err.message ?? 'Çekim işlenemedi',
+        details: err.details ?? null,
+        hint: err.hint ?? null,
+      };
+      console.error('[redeem] error', errPayload);
       return NextResponse.json(
-        { ok: false, message: err.message ?? 'Çekim işlenemedi', code: err.code },
-        { status: 500 }
+        { ok: false, error: errPayload },
+        { status: 400 }
       );
     }
 
     const raw = data as Record<string, unknown> | null;
     if (!raw) {
-      return NextResponse.json({ ok: false, message: 'Beklenmeyen yanıt' }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: { code: null, message: 'Beklenmeyen yanıt', details: null, hint: null } },
+        { status: 400 }
+      );
     }
 
     const success = raw.success === true;
     if (!success) {
-      const errCode = raw.error as string | undefined;
+      const errCode = (raw.error as string) ?? null;
       const errMsg = (raw.message as string) ?? (raw.error as string) ?? 'Çekim işlenemedi';
-      const status = errCode === 'INSUFFICIENT_POINTS' ? 400 : 400;
+      const errPayload = {
+        code: errCode,
+        message: errMsg,
+        details: (raw.details as string) ?? null,
+        hint: (raw.hint as string) ?? null,
+      };
+      console.error('[redeem] error', errPayload);
       return NextResponse.json(
-        { ok: false, message: mapErrorToMessage(errCode, errMsg), code: errCode },
-        { status }
+        { ok: false, error: errPayload },
+        { status: 400 }
       );
     }
 
@@ -96,31 +101,11 @@ export async function POST(request: Request) {
       message: 'Talebin alındı (beklemede)',
     });
   } catch (err) {
-    console.error('Redeem API error:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[redeem] error', err);
     return NextResponse.json(
-      { ok: false, message: 'Sunucu hatası' },
-      { status: 500 }
+      { ok: false, error: { code: null, message: msg, details: null, hint: null } },
+      { status: 400 }
     );
-  }
-}
-
-function mapErrorToMessage(code: string | undefined, fallback: string): string {
-  switch (code) {
-    case 'INSUFFICIENT_POINTS':
-      return 'Yetersiz puan';
-    case 'VARIANT_INACTIVE':
-      return 'Bu ödül şu an kullanılamıyor';
-    case 'REWARD_INACTIVE':
-      return 'Bu ödül şu an kullanılamıyor';
-    case 'OUT_OF_STOCK':
-      return 'Stok tükendi';
-    case 'ACCOUNT_TOO_NEW':
-      return 'Hesabınız henüz bu ödül için yeterince eski değil';
-    case 'DAILY_LIMIT_EXCEEDED':
-      return 'Günlük limit aşıldı';
-    case 'VARIANT_NOT_FOUND':
-      return 'Ödül bulunamadı';
-    default:
-      return fallback;
   }
 }

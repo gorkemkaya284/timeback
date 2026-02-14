@@ -38,6 +38,7 @@ export default function RewardsPageClient({
         const list = Array.isArray(data.rewards) ? data.rewards : [];
         const useDb = ok && list.length > 0;
         if (useDb) {
+          console.log('[rewards] image_url in response', list.map((r) => ({ title: r.title, image_url: r.image_url })));
           setRewards(list);
           setUseFallback(false);
         } else {

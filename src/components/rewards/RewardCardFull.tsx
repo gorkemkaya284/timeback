@@ -70,8 +70,10 @@ export default function RewardCardFull({
         setSuccess(true);
         onSuccess();
       } else {
-        const msg = data.message ?? data.error ?? 'Talep işlenemedi';
-        onError(msg);
+        const err = data.error as { message?: string; code?: string } | undefined;
+        const msg = err?.message ?? data.message ?? 'Talep işlenemedi';
+        const code = err?.code;
+        onError(code ? `${msg} (${code})` : msg);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Bir hata oluştu';
@@ -91,9 +93,9 @@ export default function RewardCardFull({
         : 'Talep Et';
 
   const imagePath =
-    reward.image_url && String(reward.image_url).startsWith('/')
+    reward.image_url && String(reward.image_url).trim().length > 0 && String(reward.image_url).startsWith('/')
       ? reward.image_url
-      : brand.imagePath;
+      : brand.imagePath || '/rewards/placeholder.svg';
 
   return (
     <div className="relative rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
