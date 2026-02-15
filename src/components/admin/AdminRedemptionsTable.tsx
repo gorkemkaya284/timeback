@@ -317,10 +317,10 @@ export default function AdminRedemptionsTable() {
     try {
       const supabase = createClient();
       const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
-        p_id: r.id,
+        p_redemption_id: r.id,
         p_to_status: 'processing',
         p_note: null,
-        p_status_version: (r as { status_version?: number }).status_version ?? 0,
+        p_expected_version: (r as { status_version?: number }).status_version ?? 0,
       });
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       if (error || result?.ok !== true) {
@@ -348,10 +348,10 @@ export default function AdminRedemptionsTable() {
     try {
       const supabase = createClient();
       const { data, error } = await (supabase as any).rpc('admin_mark_redemption_paid', {
-        p_id: r.id,
+        p_redemption_id: r.id,
         p_external_ref: String(externalRef).trim(),
         p_note: null,
-        p_status_version: (r as { status_version?: number }).status_version ?? 0,
+        p_expected_version: (r as { status_version?: number }).status_version ?? 0,
       });
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       if (error || result?.ok !== true) {
@@ -382,10 +382,10 @@ export default function AdminRedemptionsTable() {
         const r = list.find((x) => x.id === id);
         const version = (r as { status_version?: number })?.status_version ?? 0;
         const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
-          p_id: id,
+          p_redemption_id: id,
           p_to_status: 'processing',
           p_note: bulkNote.trim() || null,
-          p_status_version: version,
+          p_expected_version: version,
         });
         const result = typeof data === 'string' ? JSON.parse(data) : data;
         if (error || result?.ok !== true) {
@@ -417,23 +417,6 @@ export default function AdminRedemptionsTable() {
 
   return (
     <div className="space-y-4">
-      {/* GEÇİCİ: RPC auth + admin check test — test bitince silinecek */}
-      <button
-        style={{ padding: 8, border: '1px solid red', marginBottom: 12 }}
-        onClick={async () => {
-          const supabase = createClient();
-          const { data, error } = await (supabase as any).rpc('admin_bulk_update_redemption_status', {
-            p_ids: ['00000000-0000-0000-0000-000000000000'],
-            p_to_status: 'approved',
-            p_note: 'cursor test',
-          });
-          console.log('RPC TEST', { data, error });
-          alert(JSON.stringify({ data, error }, null, 2));
-        }}
-      >
-        RPC TEST
-      </button>
-
       {toast && (
         <div
           role="alert"
