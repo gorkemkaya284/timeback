@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import UserInspectorDrawer from './UserInspectorDrawer';
+import { createClient } from '@/lib/supabase/client';
 
 export type AdminRedemption = {
   id: string;
@@ -215,6 +216,23 @@ export default function AdminRedemptionsTable() {
 
   return (
     <div className="space-y-4">
+      {/* GEÇİCİ: RPC auth + admin check test — test bitince silinecek */}
+      <button
+        style={{ padding: 8, border: '1px solid red', marginBottom: 12 }}
+        onClick={async () => {
+          const supabase = createClient();
+          const { data, error } = await supabase.rpc('admin_bulk_update_redemption_status', {
+            p_ids: ['00000000-0000-0000-0000-000000000000'],
+            p_to_status: 'approved',
+            p_note: 'cursor test',
+          });
+          console.log('RPC TEST', { data, error });
+          alert(JSON.stringify({ data, error }, null, 2));
+        }}
+      >
+        RPC TEST
+      </button>
+
       {toast && (
         <div
           role="alert"
