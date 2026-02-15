@@ -11,6 +11,7 @@ import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
  * Atomik redeem: puan düş + redemption kaydı (RPC)
  */
 export async function POST(request: Request) {
+  console.log('REDEEM_ROUTE_VERSION', 'v2026-02-15-02');
   try {
     const user = await getCurrentUser();
     if (!user) {
