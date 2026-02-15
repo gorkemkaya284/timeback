@@ -21,6 +21,7 @@ export type AdminRedemption = {
   risk_flags?: string[];
   risk_action?: 'allow' | 'review' | 'block';
   last_ip?: string | null;
+  user_email?: string | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -100,9 +101,34 @@ export default function AdminRedemptionsTable() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const lastRefresh = useRef(0);
 
-  const selectableRows = list.filter((r) => r.status === 'pending' && r.note !== 'risk_block');
+  const getRiskFlags = (row: AdminRedemption): string[] => {
+    const raw = row.risk_flags;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+  const isLocked = (row: AdminRedemption) => {
+    if (row.note === 'risk_block') return true;
+    if (row.risk_score != null && row.risk_score >= 80) return true;
+    if (getRiskFlags(row).includes('multi_account_same_ip')) return true;
+    return false;
+  };
+  const getLockReason = (row: AdminRedemption) => {
+    if (row.note === 'risk_block') return 'risk_block';
+    if (row.risk_score != null && row.risk_score >= 80) return 'risk';
+    if (getRiskFlags(row).includes('multi_account_same_ip')) return 'multi_account_same_ip';
+    return '';
+  };
+  const selectableRows = list.filter((r) => r.status === 'pending' && !isLocked(r));
   const selectableIds = new Set(selectableRows.map((r) => r.id));
-  const isSelectable = (row: AdminRedemption) => row.status === 'pending' && row.note !== 'risk_block';
+  const isSelectable = (row: AdminRedemption) => row.status === 'pending' && !isLocked(row);
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,6 +146,10 @@ export default function AdminRedemptionsTable() {
 
   const runBulkUpdate = async (p_to_status: 'approved' | 'rejected') => {
     if (selectedIds.length === 0 || bulkLoading) return;
+    const msg = p_to_status === 'approved'
+      ? `${selectedIds.length} talep onaylanacak. Devam?`
+      : `${selectedIds.length} talep reddedilecek. Devam?`;
+    if (!window.confirm(msg)) return;
     setBulkLoading(true);
     try {
       const supabase = createClient();
@@ -471,8 +501,15 @@ export default function AdminRedemptionsTable() {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {list.map((r) => {
                     const selectable = isSelectable(r);
+                    const locked = isLocked(r);
+                    const lockReason = getLockReason(r);
                     return (
-                    <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setInspectorUserId(r.user_id)}>
+                    <tr
+                      key={r.id}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${locked ? 'opacity-60' : ''}`}
+                      onClick={() => setInspectorUserId(r.user_id)}
+                      title={locked ? `Kilitli: ${lockReason}` : undefined}
+                    >
                       <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -480,7 +517,7 @@ export default function AdminRedemptionsTable() {
                           disabled={!selectable}
                           onChange={() => {}}
                           onClick={(e) => toggleSelect(r.id, e as unknown as React.MouseEvent)}
-                          title={!selectable ? (r.note === 'risk_block' ? 'risk_block kilitli' : 'Sadece beklemede seçilebilir') : 'Seç'}
+                          title={!selectable ? (locked ? `Kilitli: ${lockReason}` : 'Sadece beklemede seçilebilir') : 'Seç'}
                           className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
                         />
                       </td>
@@ -490,10 +527,15 @@ export default function AdminRedemptionsTable() {
                         <span className="text-gray-500 dark:text-gray-400 ml-1">{r.payout_tl} TL</span>
                       </td>
                       <td className="px-4 py-2 text-sm" onClick={(e) => e.stopPropagation()}>
-                        <span className="font-mono text-gray-600 dark:text-gray-400 truncate max-w-[140px] inline-block align-bottom" title={r.user_id}>
-                          {r.user_id}
-                        </span>
-                        <button type="button" onClick={() => copyUserId(r.user_id)} className="ml-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title="Kopyala">
+                        <div className="flex flex-col min-w-0 max-w-[180px]">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate" title={r.user_email ?? undefined}>
+                            {r.user_email ?? '–'}
+                          </span>
+                          <span className="font-mono text-gray-600 dark:text-gray-400 truncate text-xs" title={r.user_id}>
+                            {r.user_id.slice(0, 8)}…
+                          </span>
+                        </div>
+                        <button type="button" onClick={() => copyUserId(r.user_id)} className="ml-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500" title="User ID kopyala">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                         </button>
                       </td>
@@ -501,7 +543,14 @@ export default function AdminRedemptionsTable() {
                         <StatusBadge status={r.status} />
                       </td>
                       <td className="px-4 py-2">
-                        <RiskBadge score={r.risk_score} action={r.risk_action} />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <RiskBadge score={r.risk_score} action={r.risk_action} />
+                          {locked && (
+                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200" title={`Kilitli: ${lockReason}`}>
+                              Locked
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-sm" onClick={(e) => e.stopPropagation()}>
                         {r.last_ip ? <span className="font-mono text-gray-600 dark:text-gray-400" title={r.last_ip}>{r.last_ip}</span> : '–'}
@@ -512,16 +561,19 @@ export default function AdminRedemptionsTable() {
                         )}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
-                        {r.risk_flags && r.risk_flags.length > 0 ? (
-                          <>
-                            {r.risk_flags.slice(0, 3).map((f) => (
-                              <span key={f} className="mr-1 inline-block rounded bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5">{f}</span>
-                            ))}
-                            {r.risk_flags.length > 3 ? <span className="text-gray-400">+{r.risk_flags.length - 3}</span> : null}
-                          </>
-                        ) : (
-                          '–'
-                        )}
+                        {(() => {
+                          const flags = getRiskFlags(r);
+                          return flags.length > 0 ? (
+                            <>
+                              {flags.slice(0, 3).map((f) => (
+                                <span key={f} className="mr-1 inline-block rounded bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5">{f}</span>
+                              ))}
+                              {flags.length > 3 ? <span className="text-gray-400">+{flags.length - 3}</span> : null}
+                            </>
+                          ) : (
+                            '–'
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                         {r.reviewed_at ? formatDateTR(r.reviewed_at) : '–'}
@@ -536,8 +588,8 @@ export default function AdminRedemptionsTable() {
                             <button
                               type="button"
                               onClick={() => handleApprove(r.id)}
-                              disabled={actionLoadingId !== null}
-                              title="Onayla"
+                              disabled={actionLoadingId !== null || locked}
+                              title={locked ? `Kilitli: ${lockReason}` : 'Onayla'}
                               className="mr-2 px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50 disabled:opacity-50"
                             >
                               {actionLoadingId === r.id ? '…' : 'Onayla'}
@@ -545,8 +597,8 @@ export default function AdminRedemptionsTable() {
                             <button
                               type="button"
                               onClick={() => handleRejectClick(r.id)}
-                              disabled={actionLoadingId !== null}
-                              title="Reddet; puan iade edilir"
+                              disabled={actionLoadingId !== null || locked}
+                              title={locked ? `Kilitli: ${lockReason}` : 'Reddet; puan iade edilir'}
                               className="px-2 py-1 text-xs rounded bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/50 disabled:opacity-50"
                             >
                               Reddet

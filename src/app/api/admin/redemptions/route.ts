@@ -21,6 +21,7 @@ export type AdminRedemptionRow = {
   risk_flags?: string[];
   risk_action?: 'allow' | 'review' | 'block';
   last_ip?: string | null;
+  user_email?: string | null;
 };
 
 function getAdminClient() {
@@ -163,6 +164,12 @@ export async function GET(request: Request) {
       if (row.last_ip) lastIpMap.set(row.user_id, row.last_ip);
     });
 
+    const { data: profileRows } = await admin.from('profiles').select('user_id, email').in('user_id', userIds);
+    const emailMap = new Map<string, string | null>();
+    (profileRows ?? []).forEach((row: { user_id: string; email?: string | null }) => {
+      emailMap.set(row.user_id, row.email ?? null);
+    });
+
     let redemptions: AdminRedemptionRow[] = list.map((r) => {
       const v = variantMap.get(r.variant_id);
       const rw = v ? rewardMap.get(v.reward_id) : null;
@@ -184,6 +191,7 @@ export async function GET(request: Request) {
         risk_flags: risk?.flags,
         risk_action: risk?.recommended_action as 'allow' | 'review' | 'block' | undefined,
         last_ip: lastIpMap.get(r.user_id) ?? null,
+        user_email: emailMap.get(r.user_id) ?? null,
       };
     });
 
