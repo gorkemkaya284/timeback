@@ -157,6 +157,12 @@ export default function AdminRedemptionsTable() {
     setBulkLoading(true);
     try {
       const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
+        setBulkLoading(false);
+        return;
+      }
       const { data, error } = await (supabase as any).rpc('admin_bulk_update_redemption_status', {
         p_ids: selectedIds,
         p_to_status,
@@ -316,6 +322,13 @@ export default function AdminRedemptionsTable() {
     setActionLoadingId(r.id);
     try {
       const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('session user', sessionData.session?.user?.id);
+      if (!sessionData.session) {
+        setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
+        setActionLoadingId(null);
+        return;
+      }
       const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
         p_redemption_id: r.id,
         p_to_status: 'processing',
@@ -347,6 +360,12 @@ export default function AdminRedemptionsTable() {
     setActionLoadingId(r.id);
     try {
       const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
+        setActionLoadingId(null);
+        return;
+      }
       const { data, error } = await (supabase as any).rpc('admin_mark_redemption_paid', {
         p_redemption_id: r.id,
         p_external_ref: String(externalRef).trim(),
@@ -375,6 +394,12 @@ export default function AdminRedemptionsTable() {
     setBulkLoading(true);
     try {
       const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
+        setBulkLoading(false);
+        return;
+      }
       let successCount = 0;
       let failCount = 0;
       const errors: string[] = [];
