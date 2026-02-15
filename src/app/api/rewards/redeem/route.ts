@@ -62,7 +62,14 @@ export async function POST(request: Request) {
 
     console.error('[redeem] rpc result', { data, error });
 
-    const response = data as Record<string, unknown> | null;
+    const rawRpc = data as Record<string, unknown> | null;
+    let r: Record<string, unknown> = rawRpc ?? {};
+    if (typeof rawRpc?.message === 'string') {
+      try {
+        const parsed = JSON.parse(rawRpc.message) as Record<string, unknown>;
+        if (parsed && typeof parsed === 'object') r = parsed;
+      } catch (_) {}
+    }
 
     if (error) {
       const err = error as unknown as Record<string, unknown>;
@@ -78,7 +85,7 @@ export async function POST(request: Request) {
           variant_id: variantId,
           error: code,
           message,
-          raw_response: JSON.stringify({ data: response, error: err }).slice(0, 2000),
+          raw_response: JSON.stringify({ data: rawRpc, error: err }).slice(0, 2000),
         },
       });
       return NextResponse.json(
@@ -87,20 +94,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const isSuccess = response?.ok === true || response?.status === 'pending';
+    const isSuccess = r?.ok === true || r?.status === 'pending';
 
     if (isSuccess) {
       await logSecurityEvent({
         userId: user.id,
         eventType: 'redeem_success',
-        metadata: { redemption_id: response?.redemption_id, variant_id: variantId },
+        metadata: { redemption_id: r?.id ?? r?.redemption_id, variant_id: variantId },
       });
       const redemption = {
-        id: response?.redemption_id,
-        status: response?.status,
-        cost_points: response?.cost_points,
-        payout_tl: response?.payout_tl,
-        idempotent: response?.idempotent === true,
+        id: r?.redemption_id ?? r?.id ?? rawRpc?.redemption_id,
+        status: r?.status ?? rawRpc?.status,
+        cost_points: r?.cost_points ?? rawRpc?.cost_points,
+        payout_tl: r?.payout_tl ?? rawRpc?.payout_tl,
+        idempotent: (r?.idempotent ?? rawRpc?.idempotent) === true,
       };
       return NextResponse.json({
         ok: true,
@@ -114,19 +121,19 @@ export async function POST(request: Request) {
       eventType: 'redeem_blocked',
       metadata: {
         variant_id: variantId,
-        error: response?.error != null ? String(response.error) : null,
-        message: response?.message != null ? String(response.message) : JSON.stringify(response),
-        raw_response: JSON.stringify(response).slice(0, 2000),
+        error: r?.error != null ? String(r.error) : null,
+        message: r?.message != null ? String(r.message) : JSON.stringify(r),
+        raw_response: JSON.stringify(r).slice(0, 2000),
       },
     });
     return NextResponse.json(
       {
         ok: false,
         error: {
-          code: response?.error != null ? String(response.error) : null,
-          message: response?.message != null ? String(response.message) : String(response?.error ?? 'Redeem failed'),
-          details: (response?.details as string) ?? null,
-          hint: (response?.hint as string) ?? null,
+          code: r?.error != null ? String(r.error) : null,
+          message: r?.message != null ? String(r.message) : String(r?.error ?? 'Redeem failed'),
+          details: (r?.details as string) ?? null,
+          hint: (r?.hint as string) ?? null,
         },
       },
       { status: 400 }
