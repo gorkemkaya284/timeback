@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { canUserAct } from '@/lib/utils-server';
 import { isValidUuid } from '@/lib/utils';
-import { logSecurityEvent } from '@/lib/security-events';
+import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 
 /**
  * POST /api/rewards/redeem
@@ -42,8 +42,8 @@ export async function POST(request: Request) {
     console.log('[redeem] req', { variantId, idempotencyKey, notePresent: !!note, userId: user.id });
 
     await logSecurityEvent({
-      event_type: 'redeem_attempt',
-      user_id: user.id,
+      userId: user.id,
+      eventType: 'redeem_attempt',
       metadata: { variant_id: variantId, idempotency_key: idempotencyKey },
     });
 
@@ -84,8 +84,8 @@ export async function POST(request: Request) {
       const errCode = raw.error != null ? String(raw.error) : null;
       const errMsg = raw.message != null ? String(raw.message) : (raw.error != null ? String(raw.error) : JSON.stringify(raw));
       await logSecurityEvent({
-        event_type: 'redeem_blocked',
-        user_id: user.id,
+        userId: user.id,
+        eventType: 'redeem_blocked',
         metadata: { variant_id: variantId, error: errCode, message: errMsg },
       });
       return NextResponse.json(
@@ -103,8 +103,8 @@ export async function POST(request: Request) {
     }
 
     await logSecurityEvent({
-      event_type: 'redeem_success',
-      user_id: user.id,
+      userId: user.id,
+      eventType: 'redeem_success',
       metadata: { redemption_id: raw.redemption_id, variant_id: variantId },
     });
 
