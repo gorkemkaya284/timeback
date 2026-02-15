@@ -85,6 +85,16 @@ function RiskBadge({ score, action }: { score?: number; action?: string }) {
 
 const REFRESH_THROTTLE_MS = 1000;
 
+async function getFreshVersion(supabase: any, id: string): Promise<{ status_version: number; status: string }> {
+  const { data, error } = await supabase
+    .from('tb_reward_redemptions')
+    .select('status_version, status')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export default function AdminRedemptionsTable() {
   const [list, setList] = useState<AdminRedemption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,26 +333,38 @@ export default function AdminRedemptionsTable() {
     try {
       const supabase = createClient();
       const { data: sess } = await supabase.auth.getSession();
-      console.log('session_user', sess.session?.user?.id);
       if (!sess.session) {
         setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
         setActionLoadingId(null);
         return;
       }
-      const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
+      let expectedVersion = (r as { status_version?: number }).status_version ?? 0;
+      let { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
         p_redemption_id: r.id,
         p_to_status: 'processing',
         p_note: null,
-        p_expected_version: (r as { status_version?: number }).status_version ?? 0,
+        p_expected_version: expectedVersion,
       });
-      console.log('rpc_error', error);
-      console.log('rpc_data', data);
-      if (error) alert('RPC error: ' + error.message);
-      else if (data?.ok === false) alert('RPC data.error: ' + (data.error ?? data.message ?? 'unknown'));
-      else alert('OK');
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (error || result?.ok !== true) {
-        setToast({ type: 'error', message: (result?.message ?? error?.message) || 'İşleniyor yapılamadı' });
+      let result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result?.ok === false && (result?.error === 'version_mismatch' || data?.error === 'version_mismatch')) {
+        const fresh = await getFreshVersion(supabase, r.id);
+        expectedVersion = fresh.status_version ?? expectedVersion;
+        const retry = await (supabase as any).rpc('admin_update_redemption_status', {
+          p_redemption_id: r.id,
+          p_to_status: 'processing',
+          p_note: null,
+          p_expected_version: expectedVersion,
+        });
+        data = retry.data;
+        error = retry.error;
+        result = typeof data === 'string' ? JSON.parse(data) : data;
+      }
+      if (error) {
+        setToast({ type: 'error', message: error.message ?? 'İşleniyor yapılamadı' });
+        return;
+      }
+      if (result?.ok !== true) {
+        setToast({ type: 'error', message: (result?.error ?? result?.message ?? 'İşleniyor yapılamadı') as string });
         return;
       }
       setToast({ type: 'success', message: 'İşleniyor olarak işaretlendi' });
@@ -366,26 +388,39 @@ export default function AdminRedemptionsTable() {
     try {
       const supabase = createClient();
       const { data: sess } = await supabase.auth.getSession();
-      console.log('session_user', sess.session?.user?.id);
       if (!sess.session) {
         setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
         setActionLoadingId(null);
         return;
       }
-      const { data, error } = await (supabase as any).rpc('admin_mark_redemption_paid', {
+      const externalRefTrimmed = String(externalRef).trim();
+      let expectedVersion = (r as { status_version?: number }).status_version ?? 0;
+      let { data, error } = await (supabase as any).rpc('admin_mark_redemption_paid', {
         p_redemption_id: r.id,
-        p_external_ref: String(externalRef).trim(),
+        p_external_ref: externalRefTrimmed,
         p_note: null,
-        p_expected_version: (r as { status_version?: number }).status_version ?? 0,
+        p_expected_version: expectedVersion,
       });
-      console.log('rpc_error', error);
-      console.log('rpc_data', data);
-      if (error) alert('RPC error: ' + error.message);
-      else if (data?.ok === false) alert('RPC data.error: ' + (data.error ?? data.message ?? 'unknown'));
-      else alert('OK');
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (error || result?.ok !== true) {
-        setToast({ type: 'error', message: (result?.message ?? error?.message) || 'Ödendi işaretlenemedi' });
+      let result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result?.ok === false && (result?.error === 'version_mismatch' || data?.error === 'version_mismatch')) {
+        const fresh = await getFreshVersion(supabase, r.id);
+        expectedVersion = fresh.status_version ?? expectedVersion;
+        const retry = await (supabase as any).rpc('admin_mark_redemption_paid', {
+          p_redemption_id: r.id,
+          p_external_ref: externalRefTrimmed,
+          p_note: null,
+          p_expected_version: expectedVersion,
+        });
+        data = retry.data;
+        error = retry.error;
+        result = typeof data === 'string' ? JSON.parse(data) : data;
+      }
+      if (error) {
+        setToast({ type: 'error', message: error.message ?? 'Ödendi işaretlenemedi' });
+        return;
+      }
+      if (result?.ok !== true) {
+        setToast({ type: 'error', message: (result?.error ?? result?.message ?? 'Ödendi işaretlenemedi') as string });
         return;
       }
       setToast({ type: 'success', message: 'Ödendi olarak işaretlendi' });
