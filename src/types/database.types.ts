@@ -345,6 +345,144 @@ export interface Database {
         };
         Relationships: [];
       };
+      tb_security_events: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          event_type: string;
+          ip: string;
+          user_agent: string;
+          device_fingerprint: string | null;
+          country: string | null;
+          created_at: string;
+          metadata: Json;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          event_type: string;
+          ip: string;
+          user_agent?: string;
+          device_fingerprint?: string | null;
+          country?: string | null;
+          created_at?: string;
+          metadata?: Json;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          event_type?: string;
+          ip?: string;
+          user_agent?: string;
+          device_fingerprint?: string | null;
+          country?: string | null;
+          created_at?: string;
+          metadata?: Json;
+        };
+        Relationships: [];
+      };
+      tb_risk_assessments: {
+        Row: {
+          id: string;
+          entity_type: string;
+          entity_id: string;
+          user_id: string;
+          risk_score: number;
+          flags: string[];
+          recommended_action: string;
+          details: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_type: string;
+          entity_id: string;
+          user_id: string;
+          risk_score: number;
+          flags?: string[];
+          recommended_action: string;
+          details?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_type?: string;
+          entity_id?: string;
+          user_id?: string;
+          risk_score?: number;
+          flags?: string[];
+          recommended_action?: string;
+          details?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tb_admin_audit_log: {
+        Row: {
+          id: string;
+          admin_user_id: string;
+          action: string;
+          entity_type: string | null;
+          entity_id: string | null;
+          before_state: Json | null;
+          after_state: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_user_id: string;
+          action: string;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          before_state?: Json | null;
+          after_state?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          admin_user_id?: string;
+          action?: string;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          before_state?: Json | null;
+          after_state?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tb_fulfillment_jobs: {
+        Row: {
+          id: string;
+          redemption_id: string;
+          status: string;
+          attempts: number;
+          last_error: string | null;
+          next_run_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          redemption_id: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          next_run_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          redemption_id?: string;
+          status?: string;
+          attempts?: number;
+          last_error?: string | null;
+          next_run_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: string;

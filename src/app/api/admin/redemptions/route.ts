@@ -17,6 +17,9 @@ export type AdminRedemptionRow = {
   denomination_tl?: number;
   reward_title?: string;
   reward_kind?: string;
+  risk_score?: number;
+  risk_flags?: string[];
+  risk_action?: 'allow' | 'review' | 'block';
 };
 
 function getAdminClient() {
@@ -131,9 +134,22 @@ export async function GET(request: Request) {
     const variantMap = new Map<string, { denomination_tl: number; reward_id: string }>();
     (variants ?? []).forEach((v: { id: string; denomination_tl: number; reward_id: string }) => variantMap.set(v.id, { denomination_tl: v.denomination_tl, reward_id: v.reward_id }));
 
+    const redemptionIds = list.map((r) => r.id);
+    const { data: riskRows } = await admin
+      .from('tb_risk_assessments')
+      .select('entity_id, risk_score, flags, recommended_action')
+      .eq('entity_type', 'reward_redemption')
+      .in('entity_id', redemptionIds);
+
+    const riskMap = new Map<string, { risk_score: number; flags: string[]; recommended_action: string }>();
+    (riskRows ?? []).forEach((row: { entity_id: string; risk_score: number; flags: string[]; recommended_action: string }) => {
+      riskMap.set(row.entity_id, { risk_score: row.risk_score, flags: row.flags ?? [], recommended_action: row.recommended_action });
+    });
+
     const redemptions: AdminRedemptionRow[] = list.map((r) => {
       const v = variantMap.get(r.variant_id);
       const rw = v ? rewardMap.get(v.reward_id) : null;
+      const risk = riskMap.get(r.id);
       return {
         id: r.id,
         user_id: r.user_id,
@@ -147,6 +163,9 @@ export async function GET(request: Request) {
         denomination_tl: v?.denomination_tl,
         reward_title: rw?.title,
         reward_kind: rw?.kind,
+        risk_score: risk?.risk_score,
+        risk_flags: risk?.flags,
+        risk_action: risk?.recommended_action as 'allow' | 'review' | 'block' | undefined,
       };
     });
 

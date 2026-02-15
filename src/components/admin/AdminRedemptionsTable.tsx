@@ -15,6 +15,9 @@ export type AdminRedemption = {
   denomination_tl?: number;
   reward_title?: string;
   reward_kind?: string;
+  risk_score?: number;
+  risk_flags?: string[];
+  risk_action?: 'allow' | 'review' | 'block';
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -52,6 +55,22 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] ?? 'bg-gray-100 dark:bg-gray-700'}`}>
       {label}
+    </span>
+  );
+}
+
+function RiskBadge({ score, action }: { score?: number; action?: string }) {
+  if (score == null && !action) return <span className="text-gray-400 text-xs">–</span>;
+  const level = action === 'block' ? 'High' : action === 'review' ? 'Medium' : 'Low';
+  const styles =
+    level === 'High'
+      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+      : level === 'Medium'
+        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200'
+        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles}`} title={score != null ? `Score: ${score}` : ''}>
+      {level} {score != null ? `(${score})` : ''}
     </span>
   );
 }
@@ -266,6 +285,8 @@ export default function AdminRedemptionsTable() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Ödül</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Kullanıcı</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Durum</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Risk</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Flag’lar</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">İnceleme</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Not</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Aksiyon</th>
@@ -294,6 +315,21 @@ export default function AdminRedemptionsTable() {
                       </td>
                       <td className="px-4 py-2">
                         <StatusBadge status={r.status} />
+                      </td>
+                      <td className="px-4 py-2">
+                        <RiskBadge score={r.risk_score} action={r.risk_action} />
+                      </td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
+                        {r.risk_flags && r.risk_flags.length > 0 ? (
+                          <>
+                            {r.risk_flags.slice(0, 3).map((f) => (
+                              <span key={f} className="mr-1 inline-block rounded bg-gray-200 dark:bg-gray-600 px-1.5 py-0.5">{f}</span>
+                            ))}
+                            {r.risk_flags.length > 3 ? <span className="text-gray-400">+{r.risk_flags.length - 3}</span> : null}
+                          </>
+                        ) : (
+                          '–'
+                        )}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                         {r.reviewed_at ? formatDateTR(r.reviewed_at) : '–'}

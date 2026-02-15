@@ -90,6 +90,15 @@ export async function POST(
       meta: { user_id: userId, cost_points: costPoints, reason } as Json,
     });
 
+    await admin.from('tb_admin_audit_log').insert({
+      admin_user_id: user.id,
+      action: 'reject',
+      entity_type: 'tb_reward_redemption',
+      entity_id: id,
+      before_state: { status: 'pending' } as Json,
+      after_state: { status: 'rejected', reason } as Json,
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[admin/redemptions/reject] exception:', err);

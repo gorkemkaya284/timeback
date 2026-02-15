@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { canUserAct } from '@/lib/utils-server';
 import { isValidUuid } from '@/lib/utils';
+import { logSecurityEvent } from '@/lib/security-events';
 
 /**
  * POST /api/rewards/redeem
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
 
     console.log('[redeem] req', { variantId, idempotencyKey, notePresent: !!note, userId: user.id });
 
+    await logSecurityEvent({
+      event_type: 'redeem_attempt',
+      user_id: user.id,
+      metadata: { variant_id: variantId, idempotency_key: idempotencyKey },
+    });
+
     const supabase = await createClient();
 
     const { data, error } = await supabase.rpc('redeem_reward', {
@@ -76,6 +83,11 @@ export async function POST(request: Request) {
     if (!success) {
       const errCode = raw.error != null ? String(raw.error) : null;
       const errMsg = raw.message != null ? String(raw.message) : (raw.error != null ? String(raw.error) : JSON.stringify(raw));
+      await logSecurityEvent({
+        event_type: 'redeem_blocked',
+        user_id: user.id,
+        metadata: { variant_id: variantId, error: errCode, message: errMsg },
+      });
       return NextResponse.json(
         {
           ok: false,
@@ -89,6 +101,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    await logSecurityEvent({
+      event_type: 'redeem_success',
+      user_id: user.id,
+      metadata: { redemption_id: raw.redemption_id, variant_id: variantId },
+    });
 
     const redemption = {
       id: raw.redemption_id,
