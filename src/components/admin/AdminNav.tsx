@@ -4,14 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-const overviewLink = { name: 'Özet', href: '/app/admin/overview' };
-const manageLinks = [
-  { name: 'Kullanıcılar', href: '/app/admin/users' },
+const controlLinks = [
+  { name: 'Dashboard', href: '/app/admin/dashboard' },
+  { name: 'Withdrawals', href: '/app/admin/redemptions' },
+  { name: 'Users', href: '/app/admin/users' },
+  { name: 'Security', href: '/app/admin/security' },
+];
+const otherLinks = [
+  { name: 'Özet (eski)', href: '/app/admin/overview' },
   { name: 'Defter', href: '/app/admin/ledger' },
   { name: 'Ödüller', href: '/app/admin/rewards' },
-  { name: 'Çekimler', href: '/app/admin/redemptions' },
+  { name: 'Denetim kaydı', href: '/app/admin/audit' },
 ];
-const auditLink = { name: 'Denetim kaydı', href: '/app/admin/audit' };
 
 export default function AdminNav() {
   const pathname = usePathname();
@@ -26,25 +30,21 @@ export default function AdminNav() {
 
   return (
     <nav className="border-b border-gray-200 dark:border-gray-700 pb-4 space-y-3">
-      <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Özet</p>
+      <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Control Center</p>
       <div className="flex flex-wrap gap-2">
-        <Link href={overviewLink.href} className={linkClass(overviewLink.href)}>
-          {overviewLink.name}
-        </Link>
-      </div>
-      <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-2">Yönetim</p>
-      <div className="flex flex-wrap gap-2">
-        {manageLinks.map((item) => (
+        {controlLinks.map((item) => (
           <Link key={item.href} href={item.href} className={linkClass(item.href)}>
             {item.name}
           </Link>
         ))}
       </div>
-      <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-2">Kayıtlar</p>
+      <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-2">Diğer</p>
       <div className="flex flex-wrap gap-2">
-        <Link href={auditLink.href} className={linkClass(auditLink.href)}>
-          {auditLink.name}
-        </Link>
+        {otherLinks.map((item) => (
+          <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+            {item.name}
+          </Link>
+        ))}
       </div>
     </nav>
   );

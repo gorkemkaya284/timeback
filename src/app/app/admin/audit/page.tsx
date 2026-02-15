@@ -14,11 +14,19 @@ export default async function AdminAuditPage() {
 
   if (client) {
     const { data } = await client
-      .from('audit_log')
-      .select('*')
+      .from('tb_admin_audit_log')
+      .select('id, admin_user_id, action, entity_type, entity_id, after_state, created_at')
       .order('created_at', { ascending: false })
       .limit(100);
-    entries = (data || []) as typeof entries;
+    entries = (data || []).map((r: { id: string; admin_user_id: string; action: string; entity_type: string | null; entity_id: string | null; after_state: unknown; created_at: string }) => ({
+      id: r.id,
+      actor: r.admin_user_id,
+      action: r.action,
+      target_type: r.entity_type,
+      target_id: r.entity_id,
+      payload: r.after_state,
+      created_at: r.created_at,
+    }));
   }
 
   return (

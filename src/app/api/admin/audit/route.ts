@@ -6,7 +6,7 @@ import { allowAdminAccess } from '@/lib/utils-server';
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || !allowAdminAccess(user)) {
+    if (!user || !(await allowAdminAccess(user))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -19,8 +19,8 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await adminClient
-      .from('audit_log')
-      .select('*')
+      .from('tb_admin_audit_log')
+      .select('id, admin_user_id, action, entity_type, entity_id, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 

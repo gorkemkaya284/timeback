@@ -1,6 +1,7 @@
 /**
  * Server-side admin data: KPIs and lists. Uses getReadClient() so SELECTs work
  * with service role or anon (reads work when SUPABASE_SERVICE_ROLE_KEY is missing).
+ * Uses tb_reward_redemptions and tb_admin_audit_log.
  */
 
 import { getReadClient } from '@/lib/supabase/admin';
@@ -12,11 +13,10 @@ export type AdminOverview = {
   pendingRedemptions: number;
   recentAudit: Array<{
     id: string;
-    actor: string;
+    admin_user_id: string;
     action: string;
-    target_type: string | null;
-    target_id: string | null;
-    payload: unknown;
+    entity_type: string | null;
+    entity_id: string | null;
     created_at: string;
   }>;
 };
@@ -36,8 +36,8 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   const [profilesRes, ledgerRes, redemptionsRes, auditRes] = await Promise.all([
     client.from('profiles').select('user_id', { count: 'exact', head: true }),
     client.from('points_ledger').select('delta'),
-    client.from('reward_redemptions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    client.from('audit_log').select('*').order('created_at', { ascending: false }).limit(10),
+    client.from('tb_reward_redemptions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    client.from('tb_admin_audit_log').select('id, admin_user_id, action, entity_type, entity_id, created_at').order('created_at', { ascending: false }).limit(10),
   ]);
 
   let totalUsers = 0;
@@ -55,13 +55,12 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   let pendingRedemptions = 0;
   if (redemptionsRes.count != null) pendingRedemptions = redemptionsRes.count;
 
-  const recentAudit = (auditRes.data || []).map((r) => ({
+  const recentAudit = (auditRes.data || []).map((r: { id: string; admin_user_id: string; action: string; entity_type: string | null; entity_id: string | null; created_at: string }) => ({
     id: r.id,
-    actor: r.actor,
+    admin_user_id: r.admin_user_id,
     action: r.action,
-    target_type: r.target_type,
-    target_id: r.target_id,
-    payload: r.payload,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
     created_at: r.created_at,
   }));
 

@@ -20,6 +20,7 @@ export type AdminRedemptionRow = {
   risk_score?: number;
   risk_flags?: string[];
   risk_action?: 'allow' | 'review' | 'block';
+  last_ip?: string | null;
 };
 
 function getAdminClient() {
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
     const statusParam = searchParams.get('status') ?? 'pending';
     const q = searchParams.get('q')?.trim() ?? '';
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 100);
+    const riskFilter = searchParams.get('risk')?.trim(); // 'low' | 'medium' | 'high' (0-29, 30-69, 70+)
+    const since = searchParams.get('since')?.trim(); // iso 24h/7d filter
 
     let query = admin
       .from('tb_reward_redemptions')
@@ -72,6 +75,10 @@ export async function GET(request: Request) {
       } else {
         query = query.ilike('user_id', `${q}%`);
       }
+    }
+
+    if (since) {
+      query = query.gte('created_at', since);
     }
 
     const { data: rows, error } = await query;
@@ -146,7 +153,17 @@ export async function GET(request: Request) {
       riskMap.set(row.entity_id, { risk_score: row.risk_score, flags: row.flags ?? [], recommended_action: row.recommended_action });
     });
 
-    const redemptions: AdminRedemptionRow[] = list.map((r) => {
+    const userIds = [...new Set(list.map((r) => r.user_id))];
+    const { data: riskSummaryRows } = await admin
+      .from('v_admin_user_risk_summary')
+      .select('user_id, last_ip')
+      .in('user_id', userIds);
+    const lastIpMap = new Map<string, string>();
+    (riskSummaryRows ?? []).forEach((row: { user_id: string; last_ip: string | null }) => {
+      if (row.last_ip) lastIpMap.set(row.user_id, row.last_ip);
+    });
+
+    let redemptions: AdminRedemptionRow[] = list.map((r) => {
       const v = variantMap.get(r.variant_id);
       const rw = v ? rewardMap.get(v.reward_id) : null;
       const risk = riskMap.get(r.id);
@@ -166,8 +183,17 @@ export async function GET(request: Request) {
         risk_score: risk?.risk_score,
         risk_flags: risk?.flags,
         risk_action: risk?.recommended_action as 'allow' | 'review' | 'block' | undefined,
+        last_ip: lastIpMap.get(r.user_id) ?? null,
       };
     });
+
+    if (riskFilter === 'low') {
+      redemptions = redemptions.filter((r) => (r.risk_score ?? 0) < 30);
+    } else if (riskFilter === 'medium') {
+      redemptions = redemptions.filter((r) => { const s = r.risk_score ?? 0; return s >= 30 && s < 70; });
+    } else if (riskFilter === 'high') {
+      redemptions = redemptions.filter((r) => (r.risk_score ?? 0) >= 70);
+    }
 
     return NextResponse.json({ ok: true, count: redemptions.length, data: redemptions, redemptions });
   } catch (err) {

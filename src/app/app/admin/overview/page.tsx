@@ -49,10 +49,10 @@ export default async function AdminOverviewPage() {
                     <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                       {new Date(r.created_at).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.actor}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-white font-mono text-xs">{r.admin_user_id?.slice(0, 8)}…</td>
                     <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.action}</td>
                     <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
-                      {r.target_type} {r.target_id ? `#${r.target_id}` : ''}
+                      {r.entity_type} {r.entity_id ? `#${r.entity_id.slice(0, 8)}…` : ''}
                     </td>
                   </tr>
                 ))}

@@ -72,7 +72,10 @@ export default function RewardCardV2({
         return;
       }
 
-      const msg = data.message ?? data.error ?? 'Talep işlenemedi';
+      const msg =
+        data.ok === false && data.reason === 'risk_block'
+          ? 'Güvenlik kontrolü nedeniyle talep reddedildi. Lütfen daha sonra tekrar deneyin.'
+          : (data.message ?? data.error ?? 'Talep işlenemedi');
       setError(msg);
       onError(msg);
     } catch (err) {

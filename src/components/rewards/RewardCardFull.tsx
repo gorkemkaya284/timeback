@@ -70,6 +70,10 @@ export default function RewardCardFull({
         setSuccess(true);
         onSuccess();
       } else {
+        if (data.ok === false && data.reason === 'risk_block') {
+          onError('Güvenlik kontrolü nedeniyle talep reddedildi. Lütfen daha sonra tekrar deneyin.');
+          return;
+        }
         const err = data.error as { message?: string; code?: string } | undefined;
         const ex = data.exception as { message?: string } | undefined;
         const msg = err?.message ?? ex?.message ?? data.message ?? 'Talep işlenemedi';
