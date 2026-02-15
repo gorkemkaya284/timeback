@@ -221,7 +221,7 @@ export default function AdminRedemptionsTable() {
         style={{ padding: 8, border: '1px solid red', marginBottom: 12 }}
         onClick={async () => {
           const supabase = createClient();
-          const { data, error } = await supabase.rpc('admin_bulk_update_redemption_status', {
+          const { data, error } = await (supabase as any).rpc('admin_bulk_update_redemption_status', {
             p_ids: ['00000000-0000-0000-0000-000000000000'],
             p_to_status: 'approved',
             p_note: 'cursor test',

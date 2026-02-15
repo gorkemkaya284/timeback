@@ -668,6 +668,23 @@ export interface Database {
         };
         Returns: { success: boolean; error?: string; skipped?: string; credited?: boolean; user_id?: string; points?: number; provider?: string } | null;
       };
+      admin_update_redemption_status: {
+        Args: {
+          p_redemption_id: string;
+          p_to_status: string;
+          p_note: string | null;
+          p_expected_version: number;
+        };
+        Returns: any;
+      };
+      admin_bulk_update_redemption_status: {
+        Args: {
+          p_ids: string[];
+          p_to_status: string;
+          p_note: string | null;
+        };
+        Returns: any;
+      };
     };
     Enums: Record<string, never>;
   };
