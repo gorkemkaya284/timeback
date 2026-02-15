@@ -69,29 +69,50 @@ export async function POST(request: Request) {
         err?.message != null ? String(err.message) : err?.msg != null ? String(err.msg) : (error && typeof (error as { toString?: () => string }).toString === 'function' ? (error as { toString: () => string }).toString() : JSON.stringify(error));
       const details = err?.details != null ? String(err.details) : null;
       const hint = err?.hint != null ? String(err.hint) : null;
-      const errorPayload = { code, message, details, hint };
+      const rawResponse = JSON.stringify({ data, error: err }).slice(0, 2048);
+      await logSecurityEvent({
+        userId: user.id,
+        eventType: 'redeem_blocked',
+        metadata: { variant_id: variantId, error: code, message, raw_response: rawResponse },
+      });
       return NextResponse.json(
-        { ok: false, error: errorPayload },
+        { ok: false, error: { code, message, details, hint } },
         { status: 400 }
       );
     }
 
     const raw = data as Record<string, unknown> | null;
     if (!raw) {
+      await logSecurityEvent({
+        userId: user.id,
+        eventType: 'redeem_blocked',
+        metadata: { variant_id: variantId, error: 'RPC_NULL', message: 'RPC returned null/empty', raw_response: 'null' },
+      });
       return NextResponse.json(
         { ok: false, error: { code: null, message: 'RPC returned null/empty', details: null, hint: null } },
         { status: 400 }
       );
     }
 
-    const success = raw.success === true;
-    if (!success) {
+    const success =
+      raw.success === true ||
+      raw.ok === true ||
+      (raw.status != null && String(raw.status) === 'pending');
+
+    if (success) {
+      await logSecurityEvent({
+        userId: user.id,
+        eventType: 'redeem_success',
+        metadata: { redemption_id: raw.redemption_id, variant_id: variantId },
+      });
+    } else {
       const errCode = raw.error != null ? String(raw.error) : null;
       const errMsg = raw.message != null ? String(raw.message) : (raw.error != null ? String(raw.error) : JSON.stringify(raw));
+      const rawResponse = JSON.stringify(raw).slice(0, 2048);
       await logSecurityEvent({
         userId: user.id,
         eventType: 'redeem_blocked',
-        metadata: { variant_id: variantId, error: errCode, message: errMsg },
+        metadata: { variant_id: variantId, error: errCode, message: errMsg, raw_response: rawResponse },
       });
       return NextResponse.json(
         {
@@ -106,12 +127,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    await logSecurityEvent({
-      userId: user.id,
-      eventType: 'redeem_success',
-      metadata: { redemption_id: raw.redemption_id, variant_id: variantId },
-    });
 
     const redemption = {
       id: raw.redemption_id,
