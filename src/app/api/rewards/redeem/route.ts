@@ -47,6 +47,11 @@ export async function POST(request: Request) {
       metadata: { variant_id: variantId, idempotency_key: idempotencyKey },
     });
 
+    console.log('REDEEM_ROUTE_DEBUG', {
+      hasUser: !!user,
+      userId: user?.id,
+    });
+
     const supabase = await createClient();
 
     const { data, error } = await supabase.rpc('redeem_reward', {
