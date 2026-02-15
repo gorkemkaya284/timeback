@@ -95,7 +95,70 @@ export default function AdminRedemptionsTable() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [inspectorUserId, setInspectorUserId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkNote, setBulkNote] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
   const lastRefresh = useRef(0);
+
+  const selectableRows = list.filter((r) => r.status === 'pending' && r.note !== 'risk_block');
+  const selectableIds = new Set(selectableRows.map((r) => r.id));
+  const isSelectable = (row: AdminRedemption) => row.status === 'pending' && row.note !== 'risk_block';
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectableIds.has(id)) return;
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.target.checked) setSelectedIds(selectableRows.map((r) => r.id));
+    else setSelectedIds([]);
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const runBulkUpdate = async (p_to_status: 'approved' | 'rejected') => {
+    if (selectedIds.length === 0 || bulkLoading) return;
+    setBulkLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await (supabase as any).rpc('admin_bulk_update_redemption_status', {
+        p_ids: selectedIds,
+        p_to_status,
+        p_note: bulkNote.trim() || null,
+      });
+      if (error) {
+        setToast({ type: 'error', message: `RPC hata: ${error.message ?? JSON.stringify(error)}` });
+        setBulkLoading(false);
+        return;
+      }
+      if (data?.ok !== true) {
+        setToast({ type: 'error', message: data?.message ?? 'RPC başarısız' });
+        setBulkLoading(false);
+        return;
+      }
+      const results = Array.isArray(data.results) ? data.results : [];
+      const successCount = results.filter((r: { ok?: boolean }) => r?.ok).length;
+      const failed = results.filter((r: { ok?: boolean }) => !r?.ok);
+      const failCount = failed.length;
+      setSelectedIds([]);
+      await Promise.all([fetchList(), fetchStats()]);
+      if (failCount === 0) {
+        setToast({ type: 'success', message: `${successCount} talep ${p_to_status === 'approved' ? 'onaylandı' : 'reddedildi'}.` });
+      } else {
+        const first3 = failed.slice(0, 3).map((r: { id?: string; error?: string }) => `${r?.id ?? '?'}: ${r?.error ?? 'error'}`).join('; ');
+        setToast({
+          type: 'error',
+          message: `Başarılı: ${successCount}, Hatalı: ${failCount}. İlk hatalar: ${first3}`,
+        });
+      }
+    } catch (e) {
+      setToast({ type: 'error', message: e instanceof Error ? e.message : 'Toplu işlem başarısız' });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -335,6 +398,45 @@ export default function AdminRedemptionsTable() {
         </button>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/95 px-4 py-3 shadow-sm">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Seçili: <strong>{selectedIds.length}</strong>
+          </span>
+          <input
+            type="text"
+            value={bulkNote}
+            onChange={(e) => setBulkNote(e.target.value)}
+            placeholder="Not (opsiyonel)"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm w-48"
+          />
+          <button
+            type="button"
+            onClick={() => runBulkUpdate('approved')}
+            disabled={bulkLoading}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {bulkLoading ? 'İşleniyor…' : 'Toplu Onayla'}
+          </button>
+          <button
+            type="button"
+            onClick={() => runBulkUpdate('rejected')}
+            disabled={bulkLoading}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            Toplu Reddet
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            disabled={bulkLoading}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50"
+          >
+            Seçimi temizle
+          </button>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">Yükleniyor...</div>
@@ -344,6 +446,16 @@ export default function AdminRedemptionsTable() {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
                   <tr>
+                    <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectableRows.length > 0 && selectableRows.every((r) => selectedIds.includes(r.id))}
+                        onChange={toggleSelectAll}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Tümünü seç (sadece beklemede)"
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                    </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tarih</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Ödül</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Kullanıcı</th>
@@ -357,8 +469,21 @@ export default function AdminRedemptionsTable() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {list.map((r) => (
+                  {list.map((r) => {
+                    const selectable = isSelectable(r);
+                    return (
                     <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setInspectorUserId(r.user_id)}>
+                      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(r.id)}
+                          disabled={!selectable}
+                          onChange={() => {}}
+                          onClick={(e) => toggleSelect(r.id, e as unknown as React.MouseEvent)}
+                          title={!selectable ? (r.note === 'risk_block' ? 'risk_block kilitli' : 'Sadece beklemede seçilebilir') : 'Seç'}
+                          className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
+                        />
+                      </td>
                       <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDateTR(r.created_at)}</td>
                       <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                         <span>{r.reward_title ?? '–'}</span>
@@ -432,7 +557,7 @@ export default function AdminRedemptionsTable() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                  ); })}
                 </tbody>
               </table>
             </div>
