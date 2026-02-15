@@ -1,11 +1,22 @@
 -- ============================================
--- redeem_reward: risk gate BEFORE ledger.
+-- redeem_reward: ZORUNLU risk gate BEFORE ledger.
+-- Wrapper: assess_risk_reward_redemption(redemption_id) for redeem flow.
 -- When recommended_action = 'block':
 --   - tb_reward_redemptions row exists with status='rejected', note='risk_block'
---   - points_ledger DEBIT is NOT written (no reversal needed)
---   - RPC raises P0001 / RISK_BLOCK for frontend to log redeem_blocked
--- Idempotency and success flow unchanged.
+--   - points_ledger DEBIT is NOT written (no reversal)
+--   - Returns failure JSON (success: false, error: RISK_BLOCK) so row persists in same txn
+-- Idempotency and success flow unchanged. Single transaction.
 -- ============================================
+
+-- Wrapper so redeem_reward can call: select * from assess_risk_reward_redemption(redemption_id) into risk;
+CREATE OR REPLACE FUNCTION public.assess_risk_reward_redemption(p_redemption_id UUID)
+RETURNS public.tb_risk_assessments
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT * FROM public.assess_risk('reward_redemption', p_redemption_id);
+$$;
 
 CREATE OR REPLACE FUNCTION public.redeem_reward(
   p_variant_id UUID,
@@ -123,19 +134,19 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'INSUFFICIENT_POINTS');
   END IF;
 
-  -- 1) Create redemption row (pending) so assess_risk can resolve user_id from it
+  -- 1) Create redemption row (pending); redemption_id for risk assessment
   INSERT INTO tb_reward_redemptions (user_id, variant_id, cost_points, payout_tl, status, idempotency_key, note)
   VALUES (v_uid, p_variant_id, v_variant.cost_points, v_variant.denomination_tl, 'pending', p_idempotency_key, p_note)
   RETURNING id INTO v_redemption_id;
 
-  -- 2) Risk gate BEFORE any ledger write: block => no debit, no reversal
-  v_risk := assess_risk('reward_redemption', v_redemption_id);
+  -- 2) ZORUNLU risk gate: assess_risk_reward_redemption(redemption_id) BEFORE any ledger write
+  SELECT * FROM assess_risk_reward_redemption(v_redemption_id) INTO v_risk;
   IF v_risk.recommended_action = 'block' THEN
     UPDATE tb_reward_redemptions SET status = 'rejected', note = 'risk_block' WHERE id = v_redemption_id;
-    RAISE EXCEPTION USING errcode = 'P0001', message = 'RISK_BLOCK';
+    RETURN jsonb_build_object('success', false, 'error', 'RISK_BLOCK', 'message', 'RISK_BLOCK');
   END IF;
 
-  -- 3) Allow/review: write debit and decrement stock
+  -- 3) Allow/review: write debit and decrement stock (block branch never reaches here)
   INSERT INTO points_ledger (user_id, delta, type, reason, ref_type, ref_id)
   VALUES (v_uid, -v_variant.cost_points, 'debit', 'reward_redeem', 'redeem', v_ledger_ref_id);
 
