@@ -28,13 +28,16 @@ export default function AdminRedemptionsTable() {
     try {
       const res = await fetch('/api/admin/redemptions?status=pending');
       const data = await res.json();
-      if (res.ok) {
-        setList(data.redemptions || []);
-      } else {
-        setToast({ type: 'error', message: data.message || data.error || 'Liste alınamadı' });
+      if (data.ok === false) {
+        const msg = data.error?.message ?? data.message ?? data.error ?? 'Liste alınamadı';
+        setToast({ type: 'error', message: typeof msg === 'string' ? msg : 'Liste alınamadı' });
+        setList([]);
+        return;
       }
+      setList(data.data ?? data.redemptions ?? []);
     } catch (e) {
       setToast({ type: 'error', message: e instanceof Error ? e.message : 'Liste alınamadı' });
+      setList([]);
     } finally {
       setLoading(false);
     }
@@ -195,7 +198,7 @@ export default function AdminRedemptionsTable() {
         </div>
         {list.length === 0 && (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            <p className="font-medium">Bekleyen çekim talebi yok</p>
+            <p className="font-medium">Henüz talep yok</p>
             <p className="text-sm mt-1">Onayla: talebi tamamlandı işaretle. Reddet: puan otomatik iade edilir.</p>
           </div>
         )}

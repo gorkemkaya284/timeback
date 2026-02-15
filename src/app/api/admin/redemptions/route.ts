@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@supabase/supabase-js';
 import { getCurrentUser } from '@/lib/dev';
 import { allowAdminAccess } from '@/lib/utils-server';
+import { Database } from '@/types/database.types';
 
 export type AdminRedemptionRow = {
   id: string;
@@ -20,19 +21,28 @@ export type AdminRedemptionRow = {
 
 /**
  * GET /api/admin/redemptions?status=pending
- * Returns tb_reward_redemptions with variant + reward info. Service role.
+ * SERVICE ROLE only. tb_reward_redemptions JOIN tb_reward_variants JOIN tb_rewards.
+ * Response: { ok: true, count, data } or { ok: false, error: { code, message, details, hint } }.
  */
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user || !(await allowAdminAccess(user))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: { code: null, message: 'Unauthorized', details: null, hint: null } }, { status: 403 });
     }
 
-    const admin = getAdminClient();
-    if (!admin) {
-      return NextResponse.json({ redemptions: [] });
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceRoleKey) {
+      return NextResponse.json(
+        { ok: false, error: { code: null, message: 'MISSING_SERVICE_ROLE', details: null, hint: null } },
+        { status: 500 }
+      );
     }
+
+    const admin = createClient<Database>(url, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') ?? 'pending';
@@ -45,16 +55,26 @@ export async function GET(request: Request) {
       .limit(50);
 
     if (error) {
-      console.error('[admin/redemptions] GET error:', { code: error.code, message: error.message, details: error.details, hint: error.hint });
+      const err = error as { code?: string; message?: string; details?: string; hint?: string };
+      console.error('[admin/redemptions] GET error:', err);
       return NextResponse.json(
-        { error: 'Failed to fetch redemptions', message: error.message, code: error.code },
+        {
+          ok: false,
+          error: {
+            code: err.code ?? null,
+            message: err.message ?? 'Failed to fetch',
+            details: err.details ?? null,
+            hint: err.hint ?? null,
+          },
+        },
         { status: 500 }
       );
     }
 
     const list = (rows ?? []) as { id: string; user_id: string; reward_variant_id: string; status: string; payout_tl: number; cost_points: number; note: string | null; created_at: string; reviewed_by: string | null; reviewed_at: string | null }[];
+
     if (list.length === 0) {
-      return NextResponse.json({ redemptions: [] });
+      return NextResponse.json({ ok: true, count: 0, data: [], redemptions: [] });
     }
 
     const variantIds = [...new Set(list.map((r) => r.reward_variant_id))];
@@ -63,7 +83,8 @@ export async function GET(request: Request) {
       .select('id, denomination_tl, reward_id')
       .in('id', variantIds);
 
-    if (vErr || !variants?.length) {
+    if (vErr) {
+      console.error('[admin/redemptions] variants error:', vErr);
       const redemptions: AdminRedemptionRow[] = list.map((r) => ({
         id: r.id,
         user_id: r.user_id,
@@ -75,7 +96,7 @@ export async function GET(request: Request) {
         reviewed_by: r.reviewed_by,
         reviewed_at: r.reviewed_at,
       }));
-      return NextResponse.json({ redemptions });
+      return NextResponse.json({ ok: true, count: redemptions.length, data: redemptions, redemptions });
     }
 
     const rewardIds = [...new Set((variants as { reward_id: string }[]).map((v) => v.reward_id))];
@@ -84,12 +105,12 @@ export async function GET(request: Request) {
       .select('id, title, kind')
       .in('id', rewardIds);
 
-    const rewardMap = new Map<string | number, { title: string; kind: string }>();
+    const rewardMap = new Map<string, { title: string; kind: string }>();
     if (!rErr && rewards) {
       (rewards as { id: string; title: string; kind: string }[]).forEach((rw) => rewardMap.set(rw.id, { title: rw.title, kind: rw.kind }));
     }
     const variantMap = new Map<string, { denomination_tl: number; reward_id: string }>();
-    (variants as { id: string; denomination_tl: number; reward_id: string }[]).forEach((v) => variantMap.set(v.id, { denomination_tl: v.denomination_tl, reward_id: v.reward_id }));
+    (variants ?? []).forEach((v: { id: string; denomination_tl: number; reward_id: string }) => variantMap.set(v.id, { denomination_tl: v.denomination_tl, reward_id: v.reward_id }));
 
     const redemptions: AdminRedemptionRow[] = list.map((r) => {
       const v = variantMap.get(r.reward_variant_id);
@@ -110,9 +131,20 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ redemptions });
+    return NextResponse.json({ ok: true, count: redemptions.length, data: redemptions, redemptions });
   } catch (err) {
     console.error('[admin/redemptions] GET exception:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: null,
+          message: err instanceof Error ? err.message : 'Internal server error',
+          details: null,
+          hint: null,
+        },
+      },
+      { status: 500 }
+    );
   }
 }
