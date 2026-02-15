@@ -131,7 +131,11 @@ export default function UserInspectorDrawer({
                     <div key={a.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-2 text-xs">
                       <div className="flex justify-between"><span>{formatDate(a.created_at)}</span><RiskBadge score={a.risk_score} /></div>
                       <div>action: <span className="font-medium">{a.recommended_action}</span> · flags: {Array.isArray(a.flags) ? a.flags.join(', ') : '–'}</div>
-                      {a.details && typeof a.details === 'object' && <pre className="mt-1 overflow-x-auto text-[10px]">{JSON.stringify(a.details).slice(0, 200)}</pre>}
+                      {Boolean(a.details) && (
+                        <pre className="mt-1 overflow-x-auto text-[10px]">
+                          {JSON.stringify(a.details ?? null, null, 2).slice(0, 500)}
+                        </pre>
+                      )}
                     </div>
                   ))}
                   {assessments.length === 0 && <p className="text-sm text-gray-500">Assessment yok</p>}
