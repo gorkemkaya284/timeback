@@ -75,47 +75,7 @@ export async function POST(request: Request) {
 
     console.error('[redeem] rpc result', { data, error });
 
-    let r: Record<string, unknown> = {};
-    if (typeof data === 'string') {
-      try {
-        const parsed = JSON.parse(data) as Record<string, unknown>;
-        if (parsed && typeof parsed === 'object') r = parsed;
-      } catch (_) {}
-    } else if (data != null && typeof data === 'object') {
-      const raw = data as Record<string, unknown>;
-      if (typeof raw.message === 'string') {
-        try {
-          const parsed = JSON.parse(raw.message) as Record<string, unknown>;
-          if (parsed && typeof parsed === 'object') r = parsed;
-        } catch (_) {}
-        if (Object.keys(r).length === 0) r = raw;
-      } else {
-        r = raw;
-      }
-    }
-
-    if (error) {
-      const err = error as unknown as Record<string, unknown>;
-      const code = err?.code != null ? String(err.code) : null;
-      const message =
-        err?.message != null ? String(err.message) : err?.msg != null ? String(err.msg) : JSON.stringify(error);
-      const details = err?.details != null ? String(err.details) : null;
-      const hint = err?.hint != null ? String(err.hint) : null;
-      await logSecurityEvent({
-        userId: user.id,
-        eventType: 'redeem_blocked',
-        metadata: {
-          variant_id: variantId,
-          error: code,
-          message,
-          raw_response: JSON.stringify({ data: r, error: err }).slice(0, 2000),
-        },
-      });
-      return NextResponse.json(
-        { ok: false, error: { code, message, details, hint } },
-        { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
-      );
-    }
+    const r = typeof data === 'string' ? JSON.parse(data) : data;
 
     const isSuccess = r?.ok === true || r?.status === 'pending';
 
@@ -138,26 +98,32 @@ export async function POST(request: Request) {
       );
     }
 
+    const err = error as Record<string, unknown> | null;
+    const errorCode = err?.code != null ? String(err.code) : (r?.error != null ? String(r.error) : null);
+    const errorMessage =
+      err?.message != null
+        ? String(err.message)
+        : err?.msg != null
+          ? String(err.msg)
+          : r?.message != null
+            ? String(r.message)
+            : r?.error != null
+              ? String(r.error)
+              : 'Redeem failed';
+    const details = (err?.details != null ? String(err.details) : (r?.details as string)) ?? null;
+    const hint = (err?.hint != null ? String(err.hint) : (r?.hint as string)) ?? null;
+
     await logSecurityEvent({
       userId: user.id,
       eventType: 'redeem_blocked',
       metadata: {
-        variant_id: variantId,
-        error: r?.error != null ? String(r.error) : null,
-        message: r?.message != null ? String(r.message) : null,
+        error: errorCode,
+        message: errorMessage,
         raw_response: JSON.stringify(r).slice(0, 2000),
       },
     });
     return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: r?.error != null ? String(r.error) : null,
-          message: r?.message != null ? String(r.message) : String(r?.error ?? 'Redeem failed'),
-          details: (r?.details as string) ?? null,
-          hint: (r?.hint as string) ?? null,
-        },
-      },
+      { ok: false, error: { code: errorCode, message: errorMessage, details, hint } },
       { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
     );
   } catch (e) {
