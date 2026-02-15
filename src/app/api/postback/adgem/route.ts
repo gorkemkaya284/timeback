@@ -123,6 +123,11 @@ export async function POST(request: Request) {
 }
 
 async function handlePostback(request: Request) {
+  const key = process.env.ADGEM_POSTBACK_KEY;
+  if (!key) {
+    console.warn('AdGem postback blocked: missing ADGEM_POSTBACK_KEY');
+    return NextResponse.json({ ok: false, error: 'adgem_not_configured' }, { status: 401 });
+  }
   try {
     const payload = await parsePayload(request);
     const sanitized = sanitizePayloadForLog(payload);

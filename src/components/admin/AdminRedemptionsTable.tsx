@@ -22,11 +22,13 @@ export type AdminRedemption = {
   risk_action?: 'allow' | 'review' | 'block';
   last_ip?: string | null;
   user_email?: string | null;
+  status_version?: number;
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Beklemede',
   approved: 'Onaylandı',
+  processing: 'İşleniyor',
   rejected: 'Reddedildi',
   fulfilled: 'Tamamlandı',
   canceled: 'İptal',
@@ -35,6 +37,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_TABS = [
   { value: 'pending', label: 'Beklemede' },
   { value: 'approved', label: 'Onaylandı' },
+  { value: 'processing', label: 'İşleniyor' },
   { value: 'rejected', label: 'Reddedildi' },
   { value: 'fulfilled', label: 'Tamamlandı' },
   { value: 'all', label: 'Tümü' },
@@ -52,6 +55,7 @@ function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
     approved: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200',
+    processing: 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-200',
     rejected: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
     fulfilled: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
     canceled: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
@@ -307,6 +311,110 @@ export default function AdminRedemptionsTable() {
     }
   };
 
+  const handleMarkProcessing = async (r: AdminRedemption) => {
+    if (r.status !== 'approved' || isLocked(r)) return;
+    setActionLoadingId(r.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
+        p_id: r.id,
+        p_to_status: 'processing',
+        p_note: null,
+        p_status_version: (r as { status_version?: number }).status_version ?? 0,
+      });
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (error || result?.ok !== true) {
+        setToast({ type: 'error', message: (result?.message ?? error?.message) || 'İşleniyor yapılamadı' });
+        return;
+      }
+      setToast({ type: 'success', message: 'İşleniyor olarak işaretlendi' });
+      await Promise.all([fetchList(), fetchStats()]);
+    } catch (e) {
+      setToast({ type: 'error', message: e instanceof Error ? e.message : 'İşlem başarısız' });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleMarkPaid = async (r: AdminRedemption) => {
+    if (r.status !== 'processing' || isLocked(r)) return;
+    const externalRef = window.prompt('Dış referans (ödeme fişi / transfer ID):');
+    if (externalRef == null) return;
+    if (!String(externalRef).trim()) {
+      setToast({ type: 'error', message: 'Dış referans zorunludur' });
+      return;
+    }
+    setActionLoadingId(r.id);
+    try {
+      const supabase = createClient();
+      const { data, error } = await (supabase as any).rpc('admin_mark_redemption_paid', {
+        p_id: r.id,
+        p_external_ref: String(externalRef).trim(),
+        p_note: null,
+        p_status_version: (r as { status_version?: number }).status_version ?? 0,
+      });
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (error || result?.ok !== true) {
+        setToast({ type: 'error', message: (result?.message ?? error?.message) || 'Ödendi işaretlenemedi' });
+        return;
+      }
+      setToast({ type: 'success', message: 'Ödendi olarak işaretlendi' });
+      await Promise.all([fetchList(), fetchStats()]);
+    } catch (e) {
+      setToast({ type: 'error', message: e instanceof Error ? e.message : 'İşlem başarısız' });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const runBulkMarkProcessing = async () => {
+    const selectedRows = list.filter((r) => selectedIds.includes(r.id));
+    const allApproved = selectedRows.length > 0 && selectedRows.every((r) => r.status === 'approved' && !isLocked(r));
+    if (!allApproved || selectedIds.length === 0 || bulkLoading) return;
+    if (!window.confirm(`${selectedIds.length} talep "İşleniyor" yapılacak. Devam?`)) return;
+    setBulkLoading(true);
+    try {
+      const supabase = createClient();
+      let successCount = 0;
+      let failCount = 0;
+      const errors: string[] = [];
+      for (const id of selectedIds) {
+        const r = list.find((x) => x.id === id);
+        const version = (r as { status_version?: number })?.status_version ?? 0;
+        const { data, error } = await (supabase as any).rpc('admin_update_redemption_status', {
+          p_id: id,
+          p_to_status: 'processing',
+          p_note: bulkNote.trim() || null,
+          p_status_version: version,
+        });
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        if (error || result?.ok !== true) {
+          failCount++;
+          if (errors.length < 3) errors.push(`${id}: ${result?.message ?? error?.message ?? 'error'}`);
+        } else {
+          successCount++;
+        }
+      }
+      setSelectedIds([]);
+      await Promise.all([fetchList(), fetchStats()]);
+      if (failCount === 0) {
+        setToast({ type: 'success', message: `${successCount} talep işleniyor yapıldı.` });
+      } else {
+        setToast({
+          type: 'error',
+          message: `Başarılı: ${successCount}, Hatalı: ${failCount}. ${errors.join('; ')}`,
+        });
+      }
+    } catch (e) {
+      setToast({ type: 'error', message: e instanceof Error ? e.message : 'Toplu işlem başarısız' });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const selectedRows = list.filter((r) => selectedIds.includes(r.id));
+  const bulkAllApproved = selectedRows.length > 0 && selectedRows.every((r) => r.status === 'approved' && !isLocked(r));
+
   return (
     <div className="space-y-4">
       {/* GEÇİCİ: RPC auth + admin check test — test bitince silinecek */}
@@ -456,6 +564,16 @@ export default function AdminRedemptionsTable() {
           >
             Toplu Reddet
           </button>
+          {bulkAllApproved && (
+            <button
+              type="button"
+              onClick={runBulkMarkProcessing}
+              disabled={bulkLoading}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {bulkLoading ? 'İşleniyor…' : 'Toplu İşleniyor Yap'}
+            </button>
+          )}
           <button
             type="button"
             onClick={clearSelection}
@@ -583,7 +701,7 @@ export default function AdminRedemptionsTable() {
                         {r.note || '–'}
                       </td>
                       <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                        {r.status === 'pending' ? (
+                        {r.status === 'pending' && (
                           <>
                             <button
                               type="button"
@@ -604,7 +722,30 @@ export default function AdminRedemptionsTable() {
                               Reddet
                             </button>
                           </>
-                        ) : (
+                        )}
+                        {r.status === 'approved' && !locked && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkProcessing(r)}
+                            disabled={actionLoadingId !== null}
+                            title="İşleniyor yap"
+                            className="px-2 py-1 text-xs rounded bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-800/50 disabled:opacity-50"
+                          >
+                            {actionLoadingId === r.id ? '…' : 'Mark processing'}
+                          </button>
+                        )}
+                        {r.status === 'processing' && !locked && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkPaid(r)}
+                            disabled={actionLoadingId !== null}
+                            title="Ödendi işaretle (external_ref zorunlu)"
+                            className="px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50"
+                          >
+                            {actionLoadingId === r.id ? '…' : 'Mark paid'}
+                          </button>
+                        )}
+                        {!(r.status === 'pending' || (r.status === 'approved' && !locked) || (r.status === 'processing' && !locked)) && (
                           <span className="text-gray-400 text-xs">–</span>
                         )}
                       </td>
