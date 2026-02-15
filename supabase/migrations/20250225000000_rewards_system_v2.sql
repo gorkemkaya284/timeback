@@ -54,7 +54,7 @@ CREATE INDEX idx_reward_variants_denomination ON public.reward_variants(denomina
 CREATE TABLE public.reward_redemptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  reward_variant_id UUID NOT NULL REFERENCES public.reward_variants(id),
+  variant_id UUID NOT NULL REFERENCES public.reward_variants(id),
   cost_points INT NOT NULL CHECK (cost_points > 0),
   payout_tl INT NOT NULL CHECK (payout_tl > 0),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'fulfilled', 'canceled')),
@@ -215,7 +215,7 @@ BEGIN
     v_today_start := date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul');
     SELECT COUNT(*)::INT INTO v_today_count
     FROM reward_redemptions
-    WHERE user_id = v_uid AND reward_variant_id = p_variant_id
+    WHERE user_id = v_uid AND variant_id = p_variant_id
       AND created_at >= v_today_start
       AND status NOT IN ('rejected', 'canceled');
     IF v_today_count >= v_variant.daily_limit_per_user THEN
@@ -232,7 +232,7 @@ BEGIN
   END IF;
 
   -- Insert redemption (to get id for ledger ref)
-  INSERT INTO reward_redemptions (user_id, reward_variant_id, cost_points, payout_tl, status, idempotency_key, note)
+  INSERT INTO reward_redemptions (user_id, variant_id, cost_points, payout_tl, status, idempotency_key, note)
   VALUES (v_uid, p_variant_id, v_variant.cost_points, v_variant.denomination_tl, 'pending', p_idempotency_key, p_note)
   RETURNING id INTO v_redemption_id;
 

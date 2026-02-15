@@ -235,7 +235,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          reward_variant_id: string;
+          variant_id: string;
           cost_points: number;
           payout_tl: number;
           status: string;
@@ -248,7 +248,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          reward_variant_id: string;
+          variant_id: string;
           cost_points: number;
           payout_tl: number;
           status?: string;
@@ -261,7 +261,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          reward_variant_id?: string;
+          variant_id?: string;
           cost_points?: number;
           payout_tl?: number;
           status?: string;
@@ -277,7 +277,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          reward_variant_id: string;
+          variant_id: string;
           cost_points: number;
           payout_tl: number;
           status: string;
@@ -290,7 +290,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          reward_variant_id: string;
+          variant_id: string;
           cost_points: number;
           payout_tl: number;
           status?: string;
@@ -303,7 +303,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          reward_variant_id?: string;
+          variant_id?: string;
           cost_points?: number;
           payout_tl?: number;
           status?: string;

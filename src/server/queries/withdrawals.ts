@@ -44,7 +44,7 @@ export async function getUserWithdrawals(
       points: (r as { cost_points?: number }).cost_points ?? 0,
       status: String(r.status ?? 'pending'),
       method: 'reward',
-      reference: (r as { reward_variant_id?: string }).reward_variant_id ?? null,
+      reference: (r as { variant_id?: string }).variant_id ?? null,
       processed_at: (r as { reviewed_at?: string }).reviewed_at ?? null,
       reward_title: rewards?.title ?? undefined,
     };

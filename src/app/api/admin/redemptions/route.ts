@@ -21,7 +21,9 @@ export type AdminRedemptionRow = {
 
 /**
  * GET /api/admin/redemptions?status=pending
- * SERVICE ROLE only. tb_reward_redemptions JOIN tb_reward_variants JOIN tb_rewards.
+ * SERVICE ROLE only. From tb_reward_redemptions r
+ * JOIN tb_reward_variants v ON v.id = r.variant_id
+ * JOIN tb_rewards rw ON rw.id = v.reward_id
  * Response: { ok: true, count, data } or { ok: false, error: { code, message, details, hint } }.
  */
 export async function GET(request: Request) {
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
 
     const { data: rows, error } = await admin
       .from('tb_reward_redemptions')
-      .select('id, user_id, reward_variant_id, status, payout_tl, cost_points, note, created_at, reviewed_by, reviewed_at')
+      .select('id, user_id, variant_id, status, payout_tl, cost_points, note, created_at, reviewed_by, reviewed_at')
       .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -71,13 +73,13 @@ export async function GET(request: Request) {
       );
     }
 
-    const list = (rows ?? []) as { id: string; user_id: string; reward_variant_id: string; status: string; payout_tl: number; cost_points: number; note: string | null; created_at: string; reviewed_by: string | null; reviewed_at: string | null }[];
+    const list = (rows ?? []) as { id: string; user_id: string; variant_id: string; status: string; payout_tl: number; cost_points: number; note: string | null; created_at: string; reviewed_by: string | null; reviewed_at: string | null }[];
 
     if (list.length === 0) {
       return NextResponse.json({ ok: true, count: 0, data: [], redemptions: [] });
     }
 
-    const variantIds = [...new Set(list.map((r) => r.reward_variant_id))];
+    const variantIds = [...new Set(list.map((r) => r.variant_id))];
     const { data: variants, error: vErr } = await admin
       .from('tb_reward_variants')
       .select('id, denomination_tl, reward_id')
@@ -113,7 +115,7 @@ export async function GET(request: Request) {
     (variants ?? []).forEach((v: { id: string; denomination_tl: number; reward_id: string }) => variantMap.set(v.id, { denomination_tl: v.denomination_tl, reward_id: v.reward_id }));
 
     const redemptions: AdminRedemptionRow[] = list.map((r) => {
-      const v = variantMap.get(r.reward_variant_id);
+      const v = variantMap.get(r.variant_id);
       const rw = v ? rewardMap.get(v.reward_id) : null;
       return {
         id: r.id,
