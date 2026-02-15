@@ -141,9 +141,18 @@ BEGIN
 
   -- 2) ZORUNLU risk gate: assess_risk_reward_redemption(redemption_id) BEFORE any ledger write
   SELECT * FROM assess_risk_reward_redemption(v_redemption_id) INTO v_risk;
-  IF v_risk.recommended_action = 'block' THEN
-    UPDATE tb_reward_redemptions SET status = 'rejected', note = 'risk_block' WHERE id = v_redemption_id;
-    RETURN jsonb_build_object('success', false, 'error', 'RISK_BLOCK', 'message', 'RISK_BLOCK');
+  IF TRIM(COALESCE(v_risk.recommended_action, '')) = 'block' THEN
+    -- GARANTİ: status rejected + note risk_block; exception/raise YOK (rollback yapmamalı)
+    UPDATE tb_reward_redemptions
+    SET status = 'rejected', note = 'risk_block'
+    WHERE id = v_redemption_id;
+    -- Normal return; bu noktadan sonra ledger kodu çalışmaz
+    RETURN jsonb_build_object(
+      'id', v_redemption_id,
+      'ok', false,
+      'status', 'rejected',
+      'reason', 'risk_block'
+    );
   END IF;
 
   -- 3) Allow/review: write debit and decrement stock (block branch never reaches here)
