@@ -322,9 +322,9 @@ export default function AdminRedemptionsTable() {
     setActionLoadingId(r.id);
     try {
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      console.log('session user', sessionData.session?.user?.id);
-      if (!sessionData.session) {
+      const { data: sess } = await supabase.auth.getSession();
+      console.log('session_user', sess.session?.user?.id);
+      if (!sess.session) {
         setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
         setActionLoadingId(null);
         return;
@@ -335,6 +335,11 @@ export default function AdminRedemptionsTable() {
         p_note: null,
         p_expected_version: (r as { status_version?: number }).status_version ?? 0,
       });
+      console.log('rpc_error', error);
+      console.log('rpc_data', data);
+      if (error) alert('RPC error: ' + error.message);
+      else if (data?.ok === false) alert('RPC data.error: ' + (data.error ?? data.message ?? 'unknown'));
+      else alert('OK');
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       if (error || result?.ok !== true) {
         setToast({ type: 'error', message: (result?.message ?? error?.message) || 'İşleniyor yapılamadı' });
@@ -360,8 +365,9 @@ export default function AdminRedemptionsTable() {
     setActionLoadingId(r.id);
     try {
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
+      const { data: sess } = await supabase.auth.getSession();
+      console.log('session_user', sess.session?.user?.id);
+      if (!sess.session) {
         setToast({ type: 'error', message: 'Oturum yok. Lütfen tekrar giriş yapın.' });
         setActionLoadingId(null);
         return;
@@ -372,6 +378,11 @@ export default function AdminRedemptionsTable() {
         p_note: null,
         p_expected_version: (r as { status_version?: number }).status_version ?? 0,
       });
+      console.log('rpc_error', error);
+      console.log('rpc_data', data);
+      if (error) alert('RPC error: ' + error.message);
+      else if (data?.ok === false) alert('RPC data.error: ' + (data.error ?? data.message ?? 'unknown'));
+      else alert('OK');
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       if (error || result?.ok !== true) {
         setToast({ type: 'error', message: (result?.message ?? error?.message) || 'Ödendi işaretlenemedi' });
