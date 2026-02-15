@@ -15,11 +15,17 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ ok: false, message: 'Oturum açmanız gerekiyor' }, { status: 401 });
+      return NextResponse.json(
+      { ok: false, message: 'Oturum açmanız gerekiyor' },
+      { status: 401, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
+    );
     }
 
     if (!(await canUserAct(user.id))) {
-      return NextResponse.json({ ok: false, message: 'Hesabınız kısıtlı' }, { status: 403 });
+      return NextResponse.json(
+      { ok: false, message: 'Hesabınız kısıtlı' },
+      { status: 403, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
+    );
     }
 
     const body = await request.json();
@@ -28,16 +34,22 @@ export async function POST(request: Request) {
     const note = body.note ?? null;
 
     if (!variantId || typeof variantId !== 'string') {
-      return NextResponse.json({ ok: false, message: 'variantId gerekli' }, { status: 400 });
+      return NextResponse.json(
+      { ok: false, message: 'variantId gerekli' },
+      { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
+    );
     }
     if (!isValidUuid(variantId)) {
       return NextResponse.json(
         { ok: false, message: 'Geçersiz ödül seçeneği. Lütfen sayfayı yenileyin.', code: 'INVALID_VARIANT_ID' },
-        { status: 400 }
+        { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
       );
     }
     if (!idempotencyKey || typeof idempotencyKey !== 'string') {
-      return NextResponse.json({ ok: false, message: 'idempotencyKey gerekli' }, { status: 400 });
+      return NextResponse.json(
+      { ok: false, message: 'idempotencyKey gerekli' },
+      { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
+    );
     }
 
     console.log('[redeem] req', { variantId, idempotencyKey, notePresent: !!note, userId: user.id });
@@ -101,7 +113,7 @@ export async function POST(request: Request) {
       });
       return NextResponse.json(
         { ok: false, error: { code, message, details, hint } },
-        { status: 400 }
+        { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
       );
     }
 
@@ -120,11 +132,10 @@ export async function POST(request: Request) {
         payout_tl: r?.payout_tl,
         idempotent: r?.idempotent === true,
       };
-      return NextResponse.json({
-        ok: true,
-        redemption,
-        message: 'Talebin alındı (beklemede)',
-      });
+      return NextResponse.json(
+        { ok: true, redemption, message: 'Talebin alındı (beklemede)' },
+        { headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
+      );
     }
 
     await logSecurityEvent({
@@ -147,7 +158,7 @@ export async function POST(request: Request) {
           hint: (r?.hint as string) ?? null,
         },
       },
-      { status: 400 }
+      { status: 400, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
     );
   } catch (e) {
     console.error('[redeem] exception', e);
@@ -156,7 +167,7 @@ export async function POST(request: Request) {
     const stack = e instanceof Error ? e.stack : undefined;
     return NextResponse.json(
       { ok: false, exception: { name, message, stack } },
-      { status: 500 }
+      { status: 500, headers: { 'X-REDEEM-ENTRY-VERSION': 'v2026-02-15-REAL' } }
     );
   }
 }
