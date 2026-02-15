@@ -11,7 +11,7 @@ import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
  * Atomik redeem: puan düş + redemption kaydı (RPC)
  */
 export async function POST(request: Request) {
-  console.log('REDEEM_ROUTE_VERSION', 'v2026-02-15-02');
+  console.log('REDEEM_REAL_ENTRY_VERSION', 'v2026-02-15-REAL');
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -63,13 +63,23 @@ export async function POST(request: Request) {
 
     console.error('[redeem] rpc result', { data, error });
 
-    const rawRpc = data as Record<string, unknown> | null;
-    let r: Record<string, unknown> = rawRpc ?? {};
-    if (typeof rawRpc?.message === 'string') {
+    let r: Record<string, unknown> = {};
+    if (typeof data === 'string') {
       try {
-        const parsed = JSON.parse(rawRpc.message) as Record<string, unknown>;
+        const parsed = JSON.parse(data) as Record<string, unknown>;
         if (parsed && typeof parsed === 'object') r = parsed;
       } catch (_) {}
+    } else if (data != null && typeof data === 'object') {
+      const raw = data as Record<string, unknown>;
+      if (typeof raw.message === 'string') {
+        try {
+          const parsed = JSON.parse(raw.message) as Record<string, unknown>;
+          if (parsed && typeof parsed === 'object') r = parsed;
+        } catch (_) {}
+        if (Object.keys(r).length === 0) r = raw;
+      } else {
+        r = raw;
+      }
     }
 
     if (error) {
@@ -86,7 +96,7 @@ export async function POST(request: Request) {
           variant_id: variantId,
           error: code,
           message,
-          raw_response: JSON.stringify({ data: rawRpc, error: err }).slice(0, 2000),
+          raw_response: JSON.stringify({ data: r, error: err }).slice(0, 2000),
         },
       });
       return NextResponse.json(
@@ -104,11 +114,11 @@ export async function POST(request: Request) {
         metadata: { redemption_id: r?.id ?? r?.redemption_id, variant_id: variantId },
       });
       const redemption = {
-        id: r?.redemption_id ?? r?.id ?? rawRpc?.redemption_id,
-        status: r?.status ?? rawRpc?.status,
-        cost_points: r?.cost_points ?? rawRpc?.cost_points,
-        payout_tl: r?.payout_tl ?? rawRpc?.payout_tl,
-        idempotent: (r?.idempotent ?? rawRpc?.idempotent) === true,
+        id: r?.redemption_id ?? r?.id,
+        status: r?.status,
+        cost_points: r?.cost_points,
+        payout_tl: r?.payout_tl,
+        idempotent: r?.idempotent === true,
       };
       return NextResponse.json({
         ok: true,
@@ -123,7 +133,7 @@ export async function POST(request: Request) {
       metadata: {
         variant_id: variantId,
         error: r?.error != null ? String(r.error) : null,
-        message: r?.message != null ? String(r.message) : JSON.stringify(r),
+        message: r?.message != null ? String(r.message) : null,
         raw_response: JSON.stringify(r).slice(0, 2000),
       },
     });
