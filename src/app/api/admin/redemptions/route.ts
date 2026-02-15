@@ -19,12 +19,18 @@ export type AdminRedemptionRow = {
   reward_kind?: string;
 };
 
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient<Database>(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
 /**
- * GET /api/admin/redemptions?status=pending
- * SERVICE ROLE only. From tb_reward_redemptions r
- * JOIN tb_reward_variants v ON v.id = r.variant_id
- * JOIN tb_rewards rw ON rw.id = v.reward_id
- * Response: { ok: true, count, data } or { ok: false, error: { code, message, details, hint } }.
+ * GET /api/admin/redemptions?status=...&q=...&limit=50
+ * status: "all" = no filter; otherwise r.status = status
+ * q: search by user_id (prefix) or redemption id (exact)
+ * Join: r (tb_reward_redemptions), v (tb_reward_variants) on v.id = r.variant_id, rw (tb_rewards) on rw.id = v.reward_id
  */
 export async function GET(request: Request) {
   try {
@@ -33,28 +39,39 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: { code: null, message: 'Unauthorized', details: null, hint: null } }, { status: 403 });
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceRoleKey) {
+    const admin = getAdminClient();
+    if (!admin) {
       return NextResponse.json(
         { ok: false, error: { code: null, message: 'MISSING_SERVICE_ROLE', details: null, hint: null } },
         { status: 500 }
       );
     }
 
-    const admin = createClient<Database>(url, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') ?? 'pending';
+    const statusParam = searchParams.get('status') ?? 'pending';
+    const q = searchParams.get('q')?.trim() ?? '';
+    const limit = Math.min(Number(searchParams.get('limit')) || 50, 100);
 
-    const { data: rows, error } = await admin
+    let query = admin
       .from('tb_reward_redemptions')
       .select('id, user_id, variant_id, status, payout_tl, cost_points, note, created_at, reviewed_by, reviewed_at')
-      .eq('status', status)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(limit);
+
+    if (statusParam !== 'all') {
+      query = query.eq('status', statusParam);
+    }
+
+    if (q) {
+      const uuidLike = /^[0-9a-f-]{36}$/i.test(q);
+      if (uuidLike) {
+        query = query.or(`id.eq.${q},user_id.eq.${q}`);
+      } else {
+        query = query.ilike('user_id', `${q}%`);
+      }
+    }
+
+    const { data: rows, error } = await query;
 
     if (error) {
       const err = error as { code?: string; message?: string; details?: string; hint?: string };

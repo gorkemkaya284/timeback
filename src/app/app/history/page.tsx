@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/dev';
 import { getUserWithdrawals } from '@/server/queries/withdrawals';
 import HistoryActivityList from '@/components/history/HistoryActivityList';
+import MyRedemptionsSection from '@/components/history/MyRedemptionsSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,10 @@ export default async function HistoryPage() {
           </p>
         </section>
 
-        <HistoryActivityList earnings={earnings} withdrawals={withdrawals} />
+        <div className="space-y-6">
+          <MyRedemptionsSection />
+          <HistoryActivityList earnings={earnings} withdrawals={withdrawals} />
+        </div>
       </div>
     </div>
   );

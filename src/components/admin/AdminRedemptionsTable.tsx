@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export type AdminRedemption = {
   id: string;
@@ -17,16 +17,64 @@ export type AdminRedemption = {
   reward_kind?: string;
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Beklemede',
+  approved: 'Onaylandı',
+  rejected: 'Reddedildi',
+  fulfilled: 'Tamamlandı',
+  canceled: 'İptal',
+};
+
+const STATUS_TABS = [
+  { value: 'pending', label: 'Beklemede' },
+  { value: 'approved', label: 'Onaylandı' },
+  { value: 'rejected', label: 'Reddedildi' },
+  { value: 'fulfilled', label: 'Tamamlandı' },
+  { value: 'all', label: 'Tümü' },
+] as const;
+
+function formatDateTR(iso: string) {
+  return new Date(iso).toLocaleString('tr-TR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const label = STATUS_LABELS[status] ?? status;
+  const styles: Record<string, string> = {
+    pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
+    approved: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200',
+    rejected: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
+    fulfilled: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
+    canceled: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] ?? 'bg-gray-100 dark:bg-gray-700'}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function AdminRedemptionsTable() {
   const [list, setList] = useState<AdminRedemption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusTab, setStatusTab] = useState<string>('pending');
+  const [searchQ, setSearchQ] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [stats, setStats] = useState<{ pending: number; approved: number; rejected: number; fulfilled: number; total: number } | null>(null);
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/admin/redemptions?status=pending');
+      const params = new URLSearchParams();
+      params.set('status', statusTab);
+      if (searchQ) params.set('q', searchQ);
+      params.set('limit', '50');
+      const res = await fetch(`/api/admin/redemptions?${params.toString()}`);
       const data = await res.json();
       if (data.ok === false) {
         const msg = data.error?.message ?? data.message ?? data.error ?? 'Liste alınamadı';
@@ -41,11 +89,37 @@ export default function AdminRedemptionsTable() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusTab, searchQ]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/redemptions/stats');
+      const data = await res.json();
+      if (data.ok && data.pending !== undefined) {
+        setStats({ pending: data.pending, approved: data.approved, rejected: data.rejected, fulfilled: data.fulfilled ?? 0, total: data.total });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     fetchList();
-  }, []);
+  }, [fetchList]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchQ(searchInput.trim());
+  };
+
+  const copyUserId = (userId: string) => {
+    navigator.clipboard.writeText(userId);
+    setToast({ type: 'success', message: 'User ID kopyalandı' });
+  };
 
   const handleApprove = async (id: string) => {
     try {
@@ -54,6 +128,7 @@ export default function AdminRedemptionsTable() {
       if (res.ok && data.success) {
         setToast({ type: 'success', message: 'Onaylandı' });
         fetchList();
+        fetchStats();
       } else {
         setToast({ type: 'error', message: data.message || data.error || 'Onaylama başarısız' });
       }
@@ -81,6 +156,7 @@ export default function AdminRedemptionsTable() {
       if (res.ok && data.success) {
         setToast({ type: 'success', message: 'Reddedildi, puan iade edildi' });
         fetchList();
+        fetchStats();
       } else {
         setToast({ type: 'error', message: data.message || data.error || 'Reddetme başarısız' });
       }
@@ -89,16 +165,12 @@ export default function AdminRedemptionsTable() {
     }
   };
 
-  if (loading) {
-    return <p className="text-gray-500 dark:text-gray-400">Yükleniyor...</p>;
-  }
-
   return (
     <div className="space-y-4">
       {toast && (
         <div
           role="alert"
-          className={`rounded-lg border px-4 py-3 text-sm ${
+          className={`rounded-lg border px-4 py-3 text-sm flex items-center justify-between ${
             toast.type === 'success'
               ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200'
               : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
@@ -144,63 +216,128 @@ export default function AdminRedemptionsTable() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tarih</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">User ID</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Ödül</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">TL</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Puan</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Not</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Durum</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {list.map((r) => (
-                <tr key={r.id}>
-                  <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{new Date(r.created_at).toLocaleString('tr-TR')}</td>
-                  <td className="px-4 py-2 text-sm font-mono text-gray-600 dark:text-gray-400 truncate max-w-[140px]" title={r.user_id}>
-                    {r.user_id}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.reward_title ?? '-'}</td>
-                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.payout_tl} TL</td>
-                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">{r.cost_points} P</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate" title={r.note ?? ''}>
-                    {r.note || '-'}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{r.status}</td>
-                  <td className="px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => handleApprove(r.id)}
-                      title="Onayla"
-                      className="mr-2 px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50"
-                    >
-                      Onayla
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRejectClick(r.id)}
-                      title="Reddet; puan iade edilir"
-                      className="px-2 py-1 text-xs rounded bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/50"
-                    >
-                      Reddet
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Tabs + search */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-800/50">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setStatusTab(tab.value)}
+              className={`px-3 py-2 text-sm font-medium whitespace-nowrap ${
+                statusTab === tab.value
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              {tab.label}
+              {stats && tab.value !== 'all' && (
+                <span className="ml-1 text-xs opacity-75">
+                  ({tab.value === 'pending' ? stats.pending : tab.value === 'approved' ? stats.approved : tab.value === 'rejected' ? stats.rejected : tab.value === 'fulfilled' ? stats.fulfilled : 0})
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-        {list.length === 0 && (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            <p className="font-medium">Henüz talep yok</p>
-            <p className="text-sm mt-1">Onayla: talebi tamamlandı işaretle. Reddet: puan otomatik iade edilir.</p>
-          </div>
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="User ID veya talep ID"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm min-w-[200px]"
+          />
+          <button type="submit" className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-500">
+            Ara
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">Yükleniyor...</div>
+        ) : (
+          <>
+            <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tarih</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Ödül</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Kullanıcı</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Durum</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">İnceleme</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Not</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Aksiyon</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {list.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDateTR(r.created_at)}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                        <span>{r.reward_title ?? '–'}</span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-1">{r.payout_tl} TL</span>
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <span className="font-mono text-gray-600 dark:text-gray-400 truncate max-w-[140px] inline-block align-bottom" title={r.user_id}>
+                          {r.user_id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyUserId(r.user_id)}
+                          className="ml-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                          title="Kopyala"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                      </td>
+                      <td className="px-4 py-2">
+                        <StatusBadge status={r.status} />
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        {r.reviewed_at ? formatDateTR(r.reviewed_at) : '–'}
+                        {r.reviewed_by && <span className="block text-xs text-gray-400">ID: {r.reviewed_by.slice(0, 8)}…</span>}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate" title={r.note ?? ''}>
+                        {r.note || '–'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {r.status === 'pending' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(r.id)}
+                              title="Onayla"
+                              className="mr-2 px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50"
+                            >
+                              Onayla
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectClick(r.id)}
+                              title="Reddet; puan iade edilir"
+                              className="px-2 py-1 text-xs rounded bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/50"
+                            >
+                              Reddet
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-gray-400 text-xs">–</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {list.length === 0 && (
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                <p className="font-medium">Henüz talep yok</p>
+                <p className="text-sm mt-1">Bu filtrede kayıt bulunamadı.</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
