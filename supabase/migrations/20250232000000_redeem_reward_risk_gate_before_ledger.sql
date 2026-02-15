@@ -1,11 +1,8 @@
 -- ============================================
--- redeem_reward: ZORUNLU risk gate BEFORE ledger.
--- Wrapper: assess_risk_reward_redemption(redemption_id) for redeem flow.
--- When recommended_action = 'block':
---   - tb_reward_redemptions row exists with status='rejected', note='risk_block'
---   - points_ledger DEBIT is NOT written (no reversal)
---   - Returns failure JSON (success: false, error: RISK_BLOCK) so row persists in same txn
--- Idempotency and success flow unchanged. Single transaction.
+-- redeem_reward: Risk gate ledger'dan ÖNCE; block durumunda status güncellemesi GARANTİ.
+-- Sıra: 1) INSERT redemption (pending) 2) assess_risk_reward_redemption 3) block ise UPDATE+RETURN 4) allow/review ise ledger
+-- Idempotency: Sadece mevcut kayıt varsa erken return (risk gate yalnızca yeni INSERT sonrası uygulanır; bypass yok).
+-- YASAK: risk block'ta raise exception; risk block'ta ledger debit; block return'ünden sonra kod çalışması.
 -- ============================================
 
 -- Wrapper so redeem_reward can call: select * from assess_risk_reward_redemption(redemption_id) into risk;
@@ -134,19 +131,21 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'INSUFFICIENT_POINTS');
   END IF;
 
-  -- 1) Create redemption row (pending); redemption_id for risk assessment
+  -- ========== SIRAYA DİKKAT: 1) redemption_id üret, 2) INSERT, 3) risk (ledger ÖNCE), 4) block ise UPDATE+RETURN, 5) sadece allow/review ise ledger ==========
+
+  -- 1) tb_reward_redemptions INSERT (status = pending); redemption_id RETURNING ile alınır
   INSERT INTO tb_reward_redemptions (user_id, variant_id, cost_points, payout_tl, status, idempotency_key, note)
   VALUES (v_uid, p_variant_id, v_variant.cost_points, v_variant.denomination_tl, 'pending', p_idempotency_key, p_note)
   RETURNING id INTO v_redemption_id;
 
-  -- 2) ZORUNLU risk gate: assess_risk_reward_redemption(redemption_id) BEFORE any ledger write
-  SELECT * FROM assess_risk_reward_redemption(v_redemption_id) INTO v_risk;
+  -- 2) HEMEN ARKASINDAN, ledger'dan ÖNCE: risk hesapla (idempotency branch'i buraya gelmez; yalnızca yeni INSERT sonrası)
+  SELECT * INTO v_risk FROM assess_risk_reward_redemption(v_redemption_id);
+
+  -- 3) EĞER block İSE: UPDATE + RETURN. YASAK: raise exception, ledger debit. Bu RETURN'den sonra hiçbir kod çalışmaz.
   IF TRIM(COALESCE(v_risk.recommended_action, '')) = 'block' THEN
-    -- GARANTİ: status rejected + note risk_block; exception/raise YOK (rollback yapmamalı)
     UPDATE tb_reward_redemptions
     SET status = 'rejected', note = 'risk_block'
     WHERE id = v_redemption_id;
-    -- Normal return; bu noktadan sonra ledger kodu çalışmaz
     RETURN jsonb_build_object(
       'id', v_redemption_id,
       'ok', false,
@@ -155,7 +154,7 @@ BEGIN
     );
   END IF;
 
-  -- 3) Allow/review: write debit and decrement stock (block branch never reaches here)
+  -- 4) SADECE allow/review: points_ledger debit + success return (block yukarıda return etti)
   INSERT INTO points_ledger (user_id, delta, type, reason, ref_type, ref_id)
   VALUES (v_uid, -v_variant.cost_points, 'debit', 'reward_redeem', 'redeem', v_ledger_ref_id);
 
@@ -166,9 +165,10 @@ BEGIN
   END IF;
 
   RETURN jsonb_build_object(
-    'success', true,
-    'redemption_id', v_redemption_id,
+    'ok', true,
     'status', 'pending',
+    'redemption_id', v_redemption_id,
+    'success', true,
     'cost_points', v_variant.cost_points,
     'payout_tl', v_variant.denomination_tl
   );
