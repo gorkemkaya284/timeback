@@ -62,18 +62,24 @@ export async function POST(request: Request) {
 
     console.error('[redeem] rpc result', { data, error });
 
+    const response = data as Record<string, unknown> | null;
+
     if (error) {
       const err = error as unknown as Record<string, unknown>;
       const code = err?.code != null ? String(err.code) : null;
       const message =
-        err?.message != null ? String(err.message) : err?.msg != null ? String(err.msg) : (error && typeof (error as { toString?: () => string }).toString === 'function' ? (error as { toString: () => string }).toString() : JSON.stringify(error));
+        err?.message != null ? String(err.message) : err?.msg != null ? String(err.msg) : JSON.stringify(error);
       const details = err?.details != null ? String(err.details) : null;
       const hint = err?.hint != null ? String(err.hint) : null;
-      const rawResponse = JSON.stringify({ data, error: err }).slice(0, 2048);
       await logSecurityEvent({
         userId: user.id,
         eventType: 'redeem_blocked',
-        metadata: { variant_id: variantId, error: code, message, raw_response: rawResponse },
+        metadata: {
+          variant_id: variantId,
+          error: code,
+          message,
+          raw_response: JSON.stringify({ data: response, error: err }).slice(0, 2000),
+        },
       });
       return NextResponse.json(
         { ok: false, error: { code, message, details, hint } },
@@ -81,66 +87,50 @@ export async function POST(request: Request) {
       );
     }
 
-    const raw = data as Record<string, unknown> | null;
-    if (!raw) {
-      await logSecurityEvent({
-        userId: user.id,
-        eventType: 'redeem_blocked',
-        metadata: { variant_id: variantId, error: 'RPC_NULL', message: 'RPC returned null/empty', raw_response: 'null' },
-      });
-      return NextResponse.json(
-        { ok: false, error: { code: null, message: 'RPC returned null/empty', details: null, hint: null } },
-        { status: 400 }
-      );
-    }
+    const isSuccess = response?.ok === true || response?.status === 'pending';
 
-    const success =
-      raw.success === true ||
-      raw.ok === true ||
-      (raw.status != null && String(raw.status) === 'pending');
-
-    if (success) {
+    if (isSuccess) {
       await logSecurityEvent({
         userId: user.id,
         eventType: 'redeem_success',
-        metadata: { redemption_id: raw.redemption_id, variant_id: variantId },
+        metadata: { redemption_id: response?.redemption_id, variant_id: variantId },
       });
-    } else {
-      const errCode = raw.error != null ? String(raw.error) : null;
-      const errMsg = raw.message != null ? String(raw.message) : (raw.error != null ? String(raw.error) : JSON.stringify(raw));
-      const rawResponse = JSON.stringify(raw).slice(0, 2048);
-      await logSecurityEvent({
-        userId: user.id,
-        eventType: 'redeem_blocked',
-        metadata: { variant_id: variantId, error: errCode, message: errMsg, raw_response: rawResponse },
+      const redemption = {
+        id: response?.redemption_id,
+        status: response?.status,
+        cost_points: response?.cost_points,
+        payout_tl: response?.payout_tl,
+        idempotent: response?.idempotent === true,
+      };
+      return NextResponse.json({
+        ok: true,
+        redemption,
+        message: 'Talebin alındı (beklemede)',
       });
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: errCode,
-            message: errMsg,
-            details: (raw.details as string) ?? null,
-            hint: (raw.hint as string) ?? null,
-          },
-        },
-        { status: 400 }
-      );
     }
 
-    const redemption = {
-      id: raw.redemption_id,
-      status: raw.status,
-      cost_points: raw.cost_points,
-      payout_tl: raw.payout_tl,
-      idempotent: raw.idempotent === true,
-    };
-
-    return NextResponse.json({
-      ok: true,
-      redemption,
-      message: 'Talebin alındı (beklemede)',
+    await logSecurityEvent({
+      userId: user.id,
+      eventType: 'redeem_blocked',
+      metadata: {
+        variant_id: variantId,
+        error: response?.error != null ? String(response.error) : null,
+        message: response?.message != null ? String(response.message) : JSON.stringify(response),
+        raw_response: JSON.stringify(response).slice(0, 2000),
+      },
     });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: response?.error != null ? String(response.error) : null,
+          message: response?.message != null ? String(response.message) : String(response?.error ?? 'Redeem failed'),
+          details: (response?.details as string) ?? null,
+          hint: (response?.hint as string) ?? null,
+        },
+      },
+      { status: 400 }
+    );
   } catch (e) {
     console.error('[redeem] exception', e);
     const name = e instanceof Error ? e.name : undefined;
